@@ -1,0 +1,4868 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+    <title>PDF Boss / SN Editor - Clean In-Place PDF Editor with Image Crop & Multi-Page</title>
+    <meta name="description" content="Upload letter-based PDF documents, analyze text structure, edit text with auto-detected formatting, insert & crop images, add blank pages, and export clean PDFs without ghosting." />
+    <meta property="og:title" content="PDF Boss / SN Editor" />
+    <meta property="og:description" content="Clean PDF editor with text editing, image insertion & cropping, blank page creation, whiteout masking, and lossless export." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts: Comprehensive Professional Font Library -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Lato:ital,wght@0,300;0,400;0,700;1,400&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Open+Sans:ital,wght@0,400;0,600;0,700;1,400&family=Oswald:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet" />
+
+    <!-- REQUIRED CDN LIBRARIES -->
+    <!-- 1. PDF.js v3.11.174 (Render Canvas only - NO renderTextLayer) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+    <!-- 2. Fabric.js v5.3.1 (Interactive Overlay Canvas) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <!-- 3. pdf-lib v1.17.1 (Lossless Export) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <!-- 4. Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+      :root {
+        --bg-main: #090d16;
+        --bg-panel: #0f172a;
+        --bg-panel-light: #1e293b;
+        --bg-card: #182234;
+        --bg-input: #0b1120;
+        --border-color: #273549;
+        --border-light: #3b4c66;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --accent-blue: #3b82f6;
+        --accent-blue-hover: #2563eb;
+        --accent-glow: rgba(59, 130, 246, 0.35);
+        --accent-emerald: #10b981;
+        --accent-amber: #f59e0b;
+        --accent-rose: #f43f5e;
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+        --shadow-lg: 0 14px 28px -4px rgba(0, 0, 0, 0.55), 0 6px 12px -2px rgba(0, 0, 0, 0.4);
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        height: 100dvh;
+        min-height: 100%;
+        overflow: hidden;
+        position: fixed;
+        left: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        font-size: 13px;
+        line-height: 1.5;
+        user-select: none;
+        touch-action: pan-x pan-y;
+        overscroll-behavior: none;
+      }
+
+      #app-container {
+        display: flex;
+        flex-direction: column;
+        width: 100vw;
+        height: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+        position: relative;
+        overscroll-behavior: none;
+      }
+
+      /* Primary Top Navigation Header */
+      header.app-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        background-color: var(--bg-panel);
+        border-bottom: 1px solid var(--border-color);
+        z-index: 50;
+        height: 52px;
+        gap: 12px;
+        flex-shrink: 0;
+      }
+
+      .brand-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand-logo {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+        font-size: 16px;
+        letter-spacing: -0.02em;
+        color: #ffffff;
+      }
+
+      .brand-badge {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        color: white;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        border-radius: 4px;
+        letter-spacing: 0.05em;
+        box-shadow: 0 0 10px var(--accent-glow);
+      }
+
+      .file-name-pill {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background-color: var(--bg-card);
+        padding: 4px 10px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-color);
+        font-size: 12px;
+        color: var(--text-secondary);
+        max-width: 180px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .file-name-pill span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .header-center {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .page-nav-group, .zoom-group {
+        display: flex;
+        align-items: center;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 2px;
+      }
+
+      .btn-icon {
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        width: 30px;
+        height: 30px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .btn-icon:hover:not(:disabled) {
+        background-color: var(--bg-panel-light);
+        color: var(--text-primary);
+      }
+
+      .btn-icon:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+
+      .page-indicator {
+        font-size: 12px;
+        font-weight: 500;
+        padding: 0 8px;
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 13px;
+        font-size: 12.5px;
+        font-weight: 500;
+        border-radius: var(--radius-sm);
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+      }
+
+      .btn-primary {
+        background-color: var(--accent-blue);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background-color: var(--accent-blue-hover);
+        box-shadow: 0 0 12px var(--accent-glow);
+      }
+
+      .btn-secondary {
+        background-color: var(--bg-card);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+      }
+
+      .btn-secondary:hover {
+        background-color: var(--bg-panel-light);
+        border-color: var(--border-light);
+      }
+
+      .btn-emerald {
+        background: linear-gradient(135deg, #059669, #10b981);
+        color: white;
+        box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+      }
+
+      .btn-emerald:hover {
+        background: linear-gradient(135deg, #047857, #059669);
+      }
+
+      /* Secondary Editing & Formatting Toolbar */
+      .app-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 16px;
+        background-color: #0c121e;
+        border-bottom: 1px solid var(--border-color);
+        z-index: 40;
+        height: 46px;
+        gap: 8px;
+        overflow-x: auto;
+        flex-shrink: 0;
+      }
+
+      .toolbar-left, .toolbar-formatting, .toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .tool-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 9px;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+
+      .tool-btn:hover {
+        background-color: var(--bg-panel-light);
+        color: var(--text-primary);
+      }
+
+      .tool-btn.active {
+        background-color: rgba(59, 130, 246, 0.15);
+        border-color: var(--accent-blue);
+        color: #93c5fd;
+      }
+
+      .tool-divider {
+        width: 1px;
+        height: 22px;
+        background-color: var(--border-color);
+        margin: 0 3px;
+        flex-shrink: 0;
+      }
+
+      /* Formatting Controls */
+      .formatting-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background-color: var(--bg-input);
+        padding: 2px 6px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-color);
+      }
+
+      select.input-select {
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        font-size: 12px;
+        padding: 3px 4px;
+        outline: none;
+        cursor: pointer;
+      }
+
+      select.input-select option {
+        background-color: var(--bg-panel);
+        color: var(--text-primary);
+      }
+
+      .input-number {
+        width: 38px;
+        background: transparent;
+        border: none;
+        color: var(--text-primary);
+        font-size: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        text-align: center;
+        outline: none;
+      }
+
+      .color-picker-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        cursor: pointer;
+        padding: 1px;
+      }
+
+      input[type="color"] {
+        -webkit-appearance: none;
+        border: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        background: transparent;
+      }
+
+      input[type="color"]::-webkit-color-swatch-wrapper {
+        padding: 0;
+      }
+
+      input[type="color"]::-webkit-color-swatch {
+        border: 1px solid var(--border-light);
+        border-radius: 4px;
+      }
+
+      .quick-swatches {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+      }
+
+      .swatch-dot {
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: transform 0.1s;
+      }
+
+      .swatch-dot:hover {
+        transform: scale(1.25);
+      }
+
+      /* Shapes Tool Dropdown & Controls */
+      .dropdown-wrapper {
+        position: relative;
+        display: inline-flex;
+      }
+
+      .shape-dropdown-menu {
+        position: absolute;
+        top: calc(100% + 5px);
+        left: 0;
+        background-color: var(--bg-panel);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-md);
+        padding: 5px;
+        display: none;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 155px;
+        box-shadow: var(--shadow-lg);
+        z-index: 100;
+      }
+
+      .shape-dropdown-menu.show {
+        display: flex;
+      }
+
+      .shape-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-size: 12px;
+        cursor: pointer;
+        text-align: left;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+      }
+
+      .shape-menu-item:hover {
+        background-color: var(--bg-panel-light);
+        color: #93c5fd;
+      }
+
+      .shape-menu-item.active {
+        background-color: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+        font-weight: 600;
+      }
+
+      /* Workspace Layout */
+      .workspace {
+        display: flex;
+        flex: 1 1 0%;
+        min-height: 0;
+        max-height: 100%;
+        overflow: hidden;
+        position: relative;
+      }
+
+      /* Left Sidebar */
+      .sidebar {
+        width: 310px;
+        background-color: var(--bg-panel);
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        transition: width 0.2s ease, opacity 0.2s ease;
+        z-index: 30;
+        flex-shrink: 0;
+      }
+
+      .sidebar.collapsed {
+        width: 0;
+        opacity: 0;
+        overflow: hidden;
+        border-right: none;
+      }
+
+      .sidebar-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border-color);
+        background-color: #0b111e;
+      }
+
+      .sidebar-tab {
+        flex: 1;
+        padding: 9px 4px;
+        font-size: 11px;
+        font-weight: 500;
+        text-align: center;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s;
+      }
+
+      .sidebar-tab:hover {
+        color: var(--text-primary);
+      }
+
+      .sidebar-tab.active {
+        color: var(--accent-blue);
+        border-bottom-color: var(--accent-blue);
+        background-color: rgba(59, 130, 246, 0.05);
+      }
+
+      .sidebar-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+      }
+
+      /* Thumbnails */
+      .thumbnails-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .thumbnail-card {
+        background-color: var(--bg-card);
+        border: 2px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .thumbnail-card:hover {
+        border-color: var(--border-light);
+        transform: translateY(-1px);
+      }
+
+      .thumbnail-card.active {
+        border-color: var(--accent-blue);
+        box-shadow: 0 0 12px var(--accent-glow);
+      }
+
+      .thumbnail-canvas-wrap {
+        width: 100%;
+        background-color: #ffffff;
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+        display: flex;
+        justify-content: center;
+      }
+
+      .thumbnail-canvas-wrap canvas {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .thumbnail-footer {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 6px;
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+
+      .add-page-card {
+        background-color: rgba(59, 130, 246, 0.05);
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        color: #93c5fd;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .add-page-card:hover {
+        border-color: var(--accent-blue);
+        background-color: rgba(59, 130, 246, 0.12);
+      }
+
+      /* Text Structure Tree */
+      .structure-header {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      .search-box {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+
+      .search-box input {
+        width: 100%;
+        background-color: var(--bg-input);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 6px 8px 6px 28px;
+        font-size: 12px;
+        color: var(--text-primary);
+        outline: none;
+      }
+
+      .search-box input:focus {
+        border-color: var(--accent-blue);
+      }
+
+      .search-icon {
+        position: absolute;
+        left: 8px;
+        color: var(--text-muted);
+        pointer-events: none;
+      }
+
+      .text-tree-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .text-tree-item {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 7px 9px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .text-tree-item:hover {
+        background-color: var(--bg-panel-light);
+        border-color: var(--border-light);
+      }
+
+      .text-tree-item.selected {
+        border-color: var(--accent-blue);
+        background-color: rgba(59, 130, 246, 0.12);
+      }
+
+      .tree-item-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        margin-bottom: 3px;
+      }
+
+      .tree-item-text {
+        font-size: 11.5px;
+        font-weight: 500;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .tree-item-meta {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        color: var(--text-muted);
+      }
+
+      .meta-tag {
+        background-color: var(--bg-input);
+        padding: 1px 5px;
+        border-radius: 3px;
+        border: 1px solid var(--border-color);
+      }
+
+      .meta-tag.modified {
+        background-color: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+        border-color: rgba(16, 185, 129, 0.3);
+      }
+
+      /* Doc Info & Anti-Ghosting Guide */
+      .info-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 12px;
+        margin-bottom: 12px;
+      }
+
+      .info-card h4 {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+      }
+
+      .info-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+
+      .info-row:last-child {
+        border-bottom: none;
+      }
+
+      .info-label {
+        color: var(--text-secondary);
+      }
+
+      .info-val {
+        font-weight: 500;
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      .anti-ghosting-banner {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.08));
+        border: 1px solid rgba(16, 185, 129, 0.35);
+        border-radius: var(--radius-md);
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11.5px;
+        color: #6ee7b7;
+      }
+
+      .tips-box {
+        background-color: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        border-radius: var(--radius-md);
+        padding: 12px;
+        font-size: 12px;
+        color: #bfdbfe;
+        line-height: 1.6;
+      }
+
+      .tips-box ul {
+        padding-left: 16px;
+        margin-top: 6px;
+      }
+
+      /* Viewport & Canvas Stage */
+      .canvas-viewport {
+        flex: 1 1 0%;
+        height: 100%;
+        max-height: 100%;
+        min-height: 0;
+        overflow: auto;
+        position: relative;
+        background-color: #070b13;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 32px 16px;
+        user-select: none;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        touch-action: pan-x pan-y;
+      }
+
+      .canvas-stage-wrapper {
+        position: relative;
+        background-color: #ffffff;
+        box-shadow: 0 14px 40px rgba(0, 0, 0, 0.65), 0 3px 8px rgba(0, 0, 0, 0.4);
+        border-radius: 2px;
+        margin: auto;
+        transform-origin: center top;
+        transition: transform 0.1s ease-out;
+        touch-action: none;
+      }
+
+      /* Fabric canvas containers and touch discipline */
+      .canvas-stage-wrapper canvas,
+      .canvas-stage-wrapper .canvas-container,
+      .canvas-stage-wrapper .upper-canvas,
+      .canvas-stage-wrapper .lower-canvas {
+        touch-action: none !important;
+      }
+
+      /* Fabric.js hidden textarea lockdown: Prevents mobile/WebView auto-zoom and layout shifts */
+      .canvas-container textarea,
+      .canvas-container .fabric-textarea,
+      textarea.fabric-textarea {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 1px !important;
+        height: 1px !important;
+        opacity: 0 !important;
+        font-size: 16px !important; /* >=16px prevents iOS Safari & Android WebView from auto-zooming! */
+        line-height: 16px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        outline: none !important;
+        background: transparent !important;
+        resize: none !important;
+        pointer-events: none !important;
+        transform: translate3d(-9999px, -9999px, 0) !important;
+        z-index: -9999 !important;
+      }
+
+      /* Fixed Bottom Status Bar / Footer */
+      .app-footer {
+        flex-shrink: 0;
+        height: 28px;
+        background-color: var(--bg-panel);
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 16px;
+        font-size: 11px;
+        color: var(--text-muted);
+        z-index: 45;
+        position: relative;
+        user-select: none;
+      }
+
+      .footer-left, .footer-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .footer-indicator-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background-color: var(--accent-emerald);
+        box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+      }
+
+      .footer-sep {
+        color: var(--border-light);
+        opacity: 0.7;
+      }
+
+      .footer-tip {
+        color: var(--text-secondary);
+      }
+
+      .footer-badge {
+        background-color: rgba(59, 130, 246, 0.12);
+        color: #93c5fd;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 10px;
+        font-family: 'JetBrains Mono', monospace;
+      }
+
+      /* Hover highlight box */
+      .hover-guide-box {
+        position: absolute;
+        pointer-events: none;
+        border: 1.5px dashed var(--accent-blue);
+        background-color: rgba(59, 130, 246, 0.12);
+        border-radius: 2px;
+        z-index: 25;
+        transition: all 0.06s ease-out;
+        display: none;
+      }
+
+      .hover-guide-label {
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 0;
+        background-color: #0f172a;
+        color: #93c5fd;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 3px;
+        border: 1px solid #3b82f6;
+        white-space: nowrap;
+        box-shadow: var(--shadow-md);
+      }
+
+      /* Floating Viewport Controls */
+      .floating-viewport-controls {
+        position: absolute;
+        bottom: 20px;
+        right: 24px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background-color: rgba(15, 23, 42, 0.9);
+        backdrop-filter: blur(8px);
+        border: 1px solid var(--border-color);
+        border-radius: 30px;
+        padding: 3px 8px;
+        box-shadow: var(--shadow-lg);
+        z-index: 35;
+      }
+
+      /* Dropzone Overlay */
+      .dropzone-overlay {
+        position: absolute;
+        inset: 0;
+        background-color: var(--bg-main);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 60;
+        padding: 20px;
+      }
+
+      .dropzone-card {
+        background-color: var(--bg-panel);
+        border: 2px dashed var(--border-light);
+        border-radius: var(--radius-lg);
+        padding: 40px 30px;
+        text-align: center;
+        max-width: 520px;
+        width: 100%;
+        box-shadow: var(--shadow-lg);
+        transition: all 0.2s;
+        cursor: pointer;
+      }
+
+      .dropzone-card.dragover {
+        border-color: var(--accent-blue);
+        background-color: rgba(59, 130, 246, 0.06);
+        transform: scale(1.02);
+      }
+
+      .dropzone-icon-ring {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(37, 99, 235, 0.1));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        color: var(--accent-blue);
+      }
+
+      .dropzone-card h3 {
+        font-size: 19px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #fff;
+      }
+
+      .dropzone-card p {
+        color: var(--text-secondary);
+        font-size: 13px;
+        margin-bottom: 22px;
+        line-height: 1.5;
+      }
+
+      .dropzone-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .sample-cta-btn {
+        background: transparent;
+        border: 1px solid var(--border-light);
+        color: #93c5fd;
+        padding: 8px 16px;
+        border-radius: var(--radius-sm);
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.15s;
+      }
+
+      .sample-cta-btn:hover {
+        background-color: rgba(59, 130, 246, 0.1);
+        border-color: var(--accent-blue);
+      }
+
+      /* Modal Dialog (Crop Image) */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(5px);
+        z-index: 120;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+
+      .crop-modal-card {
+        background-color: #0f172a;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        width: 100%;
+        max-width: 680px;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        overflow: hidden;
+      }
+
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border-color);
+        background-color: #0b111e;
+      }
+
+      .modal-header h3 {
+        font-size: 15px;
+        font-weight: 600;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .modal-body {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        overflow-y: auto;
+      }
+
+      .crop-stage-container {
+        position: relative;
+        background-color: #000;
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        max-width: 100%;
+        max-height: 380px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+      }
+
+      #crop-preview-canvas {
+        display: block;
+        max-width: 100%;
+        max-height: 380px;
+        user-select: none;
+      }
+
+      .crop-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+      }
+
+      .crop-chip {
+        padding: 5px 10px;
+        border-radius: var(--radius-sm);
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        font-size: 11.5px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .crop-chip:hover {
+        background-color: var(--bg-panel-light);
+        color: var(--text-primary);
+      }
+
+      .crop-chip.active {
+        background-color: rgba(59, 130, 246, 0.15);
+        border-color: var(--accent-blue);
+        color: #93c5fd;
+      }
+
+      .modal-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 12px 18px;
+        border-top: 1px solid var(--border-color);
+        background-color: #0b111e;
+        gap: 10px;
+      }
+
+      /* Toast Notification */
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%) translateY(100px);
+        background-color: #1e293b;
+        border: 1px solid var(--border-light);
+        color: white;
+        padding: 9px 18px;
+        border-radius: 30px;
+        font-size: 12.5px;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        z-index: 100;
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        pointer-events: none;
+      }
+
+      .toast.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+
+      .spinner {
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-top-color: #fff;
+        border-radius: 50%;
+        width: 14px;
+        height: 14px;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      /* Mobile & Android WebView Responsiveness */
+      @media (max-width: 768px) {
+        .sidebar {
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          box-shadow: var(--shadow-lg);
+          z-index: 55;
+        }
+        .file-name-pill {
+          display: none;
+        }
+        .app-header {
+          padding: 0 10px;
+        }
+        .app-toolbar {
+          padding: 4px 8px;
+        }
+      }
+
+      ::-webkit-scrollbar {
+        width: 7px;
+        height: 7px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #273549;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #3b4c66;
+      }
+
+      #pdf-file-input, #image-file-input {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app-container">
+      <!-- Top Primary Navigation Header -->
+      <header class="app-header">
+        <div class="brand-group">
+          <div class="brand-logo">
+            <i data-lucide="file-text" style="color: #3b82f6; width: 20px; height: 20px;"></i>
+            <span>PDF Boss</span>
+            <span class="brand-badge">SN EDITOR</span>
+          </div>
+
+          <div class="file-name-pill" id="file-display" title="No file loaded">
+            <i data-lucide="file" style="width: 13px; height: 13px;"></i>
+            <span id="file-name-text">No document loaded</span>
+          </div>
+        </div>
+
+        <div class="header-center">
+          <div class="page-nav-group">
+            <button class="btn-icon" id="btn-prev-page" title="Previous Page" disabled>
+              <i data-lucide="chevron-left" style="width: 15px; height: 15px;"></i>
+            </button>
+            <span class="page-indicator" id="page-num-display">1 / 1</span>
+            <button class="btn-icon" id="btn-next-page" title="Next Page" disabled>
+              <i data-lucide="chevron-right" style="width: 15px; height: 15px;"></i>
+            </button>
+          </div>
+
+          <button class="btn btn-secondary" id="btn-add-page-header" style="padding: 4px 10px; font-size: 11.5px;" title="Insert a brand new blank white page">
+            <i data-lucide="file-plus" style="width: 13px; height: 13px; color: #60a5fa;"></i>
+            <span>+ Page</span>
+          </button>
+
+          <div class="zoom-group">
+            <button class="btn-icon" id="btn-zoom-out" title="Zoom Out">
+              <i data-lucide="zoom-out" style="width: 15px; height: 15px;"></i>
+            </button>
+            <span class="page-indicator" id="zoom-level-display">100%</span>
+            <button class="btn-icon" id="btn-zoom-in" title="Zoom In">
+              <i data-lucide="zoom-in" style="width: 15px; height: 15px;"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn btn-secondary" id="btn-upload-trigger">
+            <i data-lucide="upload" style="width: 14px; height: 14px;"></i>
+            <span>Open PDF</span>
+          </button>
+          <button class="btn btn-emerald" id="btn-export-pdf" title="Burn edits, added images & pages into clean, lossless PDF">
+            <i data-lucide="download" style="width: 14px; height: 14px;"></i>
+            <span>Export Clean PDF</span>
+          </button>
+          <div id="header-user-slot"></div>
+        </div>
+      </header>
+
+      <!-- Secondary Editing & Formatting Toolbar -->
+      <nav class="app-toolbar">
+        <div class="toolbar-left">
+          <button class="tool-btn" id="btn-toggle-sidebar" title="Toggle Sidebar">
+            <i data-lucide="sidebar" style="width: 14px; height: 14px;"></i>
+            <span>Panel</span>
+          </button>
+
+          <div class="tool-divider"></div>
+
+          <!-- Tools -->
+          <button class="tool-btn active" id="tool-select" title="Select / Edit Text (Direct click to edit)">
+            <i data-lucide="mouse-pointer" style="width: 13px; height: 13px;"></i>
+            <span>Edit Text</span>
+          </button>
+
+          <button class="tool-btn" id="tool-add-text" title="Insert New Text Box">
+            <i data-lucide="type" style="width: 13px; height: 13px;"></i>
+            <span>Add Text</span>
+          </button>
+
+          <!-- FEATURE 1: Add Image with Crop -->
+          <button class="tool-btn" id="btn-add-image" title="Upload and insert photo, logo, or signature with crop tool">
+            <i data-lucide="image" style="width: 13px; height: 13px; color: #38bdf8;"></i>
+            <span>Add Image</span>
+          </button>
+
+          <!-- GEOMETRIC SHAPE INSERTION TOOL -->
+          <div class="dropdown-wrapper" id="shape-dropdown-wrapper">
+            <button class="tool-btn" id="tool-shape" title="Insert Geometric Shape (Rectangle, Circle, Line, Arrow)">
+              <i data-lucide="square" id="active-shape-icon" style="width: 13px; height: 13px; color: #f59e0b;"></i>
+              <span id="active-shape-label">Shapes</span>
+              <i data-lucide="chevron-down" style="width: 10px; height: 10px; opacity: 0.65; margin-left: 2px;"></i>
+            </button>
+            <div class="shape-dropdown-menu" id="shape-dropdown-menu">
+              <button class="shape-menu-item active" data-shape="rect">
+                <i data-lucide="square" style="width: 13px; height: 13px; color: #60a5fa;"></i>
+                <span>Rectangle</span>
+              </button>
+              <button class="shape-menu-item" data-shape="circle">
+                <i data-lucide="circle" style="width: 13px; height: 13px; color: #34d399;"></i>
+                <span>Circle / Ellipse</span>
+              </button>
+              <button class="shape-menu-item" data-shape="line">
+                <i data-lucide="minus" style="width: 13px; height: 13px; color: #fbbf24;"></i>
+                <span>Line</span>
+              </button>
+              <button class="shape-menu-item" data-shape="arrow">
+                <i data-lucide="arrow-up-right" style="width: 13px; height: 13px; color: #f43f5e;"></i>
+                <span>Arrow</span>
+              </button>
+            </div>
+          </div>
+
+          <button class="tool-btn" id="tool-erase" title="White-out / Mask Tool: Drag to erase unwanted signatures, logos, or lines">
+            <i data-lucide="eraser" style="width: 13px; height: 13px;"></i>
+            <span>White-out</span>
+          </button>
+
+          <button class="tool-btn" id="btn-mask-all" style="color: #60a5fa;" title="Wipe out all background text across page to edit everything">
+            <i data-lucide="sparkles" style="width: 13px; height: 13px;"></i>
+            <span>Mask All</span>
+          </button>
+
+          <div class="tool-divider"></div>
+
+          <button class="tool-btn" id="btn-toolbar-cloud-save" style="color: #60a5fa;" title="Save active PDF to Firestore Cloud">
+            <i data-lucide="cloud" style="width: 13px; height: 13px; color: #60a5fa;"></i>
+            <span>Cloud Save</span>
+          </button>
+
+          <button class="tool-btn" id="btn-toolbar-cloud-docs" style="color: #93c5fd;" title="Browse My Saved Cloud PDFs">
+            <i data-lucide="folder-open" style="width: 13px; height: 13px; color: #93c5fd;"></i>
+            <span>My Docs</span>
+          </button>
+        </div>
+
+        <!-- Dynamic Formatting Controls -->
+        <div class="toolbar-formatting" id="format-controls">
+          <div class="tool-divider"></div>
+
+          <!-- Text Formatting Controls -->
+          <div class="formatting-group" id="text-font-family-group">
+            <select class="input-select" id="font-family-select" title="Font Family">
+              <optgroup label="Modern Sans-Serif">
+                <option value="Inter, -apple-system, sans-serif">Inter (Sans)</option>
+                <option value="'Roboto', sans-serif">Roboto</option>
+                <option value="'Open Sans', sans-serif">Open Sans</option>
+                <option value="'Montserrat', sans-serif">Montserrat</option>
+                <option value="'Lato', sans-serif">Lato</option>
+                <option value="'Poppins', sans-serif">Poppins</option>
+                <option value="Arial, Helvetica, sans-serif">Arial</option>
+              </optgroup>
+              <optgroup label="Editorial & Classic Serif">
+                <option value="'Playfair Display', Georgia, serif">Playfair Display</option>
+                <option value="'Merriweather', serif">Merriweather</option>
+                <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                <option value="Georgia, serif">Georgia</option>
+              </optgroup>
+              <optgroup label="Monospace & Technical">
+                <option value="'JetBrains Mono', monospace">JetBrains Mono</option>
+                <option value="'Courier Prime', Courier, monospace">Courier Prime</option>
+                <option value="'Courier New', Courier, monospace">Courier New</option>
+              </optgroup>
+              <optgroup label="Display & Condensed">
+                <option value="'Oswald', sans-serif">Oswald</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <div class="formatting-group" id="text-font-size-group">
+            <button class="btn-icon" id="btn-font-size-dec" style="width:18px;height:18px;" title="Decrease Font Size">-</button>
+            <input type="text" class="input-number" id="font-size-input" value="14" title="Font Size" />
+            <button class="btn-icon" id="btn-font-size-inc" style="width:18px;height:18px;" title="Increase Font Size">+</button>
+          </div>
+
+          <div class="formatting-group" id="text-style-group">
+            <button class="tool-btn" id="btn-bold-toggle" style="padding: 2px 7px; font-weight:700;" title="Bold">B</button>
+            <button class="tool-btn" id="btn-italic-toggle" style="padding: 2px 7px; font-style:italic;" title="Italic">I</button>
+          </div>
+
+          <div class="formatting-group" id="text-color-group">
+            <div class="color-picker-wrapper" title="Ink Color">
+              <input type="color" id="text-color-picker" value="#0f172a" />
+            </div>
+            <div class="quick-swatches">
+              <span class="swatch-dot" style="background:#0f172a;" data-color="#0f172a" title="Deep Slate"></span>
+              <span class="swatch-dot" style="background:#1d4ed8;" data-color="#1d4ed8" title="Royal Blue"></span>
+              <span class="swatch-dot" style="background:#b91c1c;" data-color="#b91c1c" title="Crimson Red"></span>
+              <span class="swatch-dot" style="background:#047857;" data-color="#047857" title="Forest Green"></span>
+            </div>
+          </div>
+
+          <div class="formatting-group" id="text-align-group">
+            <button class="btn-icon" id="btn-align-left" title="Align Left">
+              <i data-lucide="align-left" style="width: 13px; height: 13px;"></i>
+            </button>
+            <button class="btn-icon" id="btn-align-center" title="Align Center">
+              <i data-lucide="align-center" style="width: 13px; height: 13px;"></i>
+            </button>
+            <button class="btn-icon" id="btn-align-right" title="Align Right">
+              <i data-lucide="align-right" style="width: 13px; height: 13px;"></i>
+            </button>
+          </div>
+
+          <!-- SHAPE CUSTOMIZATION CONTROLS (Border, Width, Fill, Transparency) -->
+          <div class="formatting-group" id="shape-controls-group" style="display: none;" title="Shape Properties">
+            <span style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; padding: 0 2px;">Stroke</span>
+            <div class="color-picker-wrapper" title="Shape Stroke / Outline Color">
+              <input type="color" id="shape-stroke-picker" value="#2563eb" />
+            </div>
+            <select class="input-select" id="shape-stroke-width-select" title="Outline Width" style="width: 58px; padding: 2px 2px;">
+              <option value="1">1 px</option>
+              <option value="2" selected>2 px</option>
+              <option value="3">3 px</option>
+              <option value="4">4 px</option>
+              <option value="6">6 px</option>
+              <option value="8">8 px</option>
+              <option value="12">12 px</option>
+            </select>
+            <div class="tool-divider" style="height: 16px; margin: 0 2px;"></div>
+            <span style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; padding: 0 2px;">Fill</span>
+            <div class="color-picker-wrapper" title="Shape Fill Color" id="shape-fill-wrapper">
+              <input type="color" id="shape-fill-picker" value="#3b82f6" />
+            </div>
+            <button class="tool-btn" id="shape-transparent-toggle-btn" style="padding: 2px 7px; font-size: 11px;" title="Toggle Solid / Transparent Fill">
+              <span id="shape-fill-mode-label">Fill: Solid</span>
+            </button>
+          </div>
+
+          <div class="formatting-group">
+            <!-- Crop Active Image Button (shown when an image is selected) -->
+            <button class="btn-icon" id="btn-crop-selected-image" title="Crop Selected Image" style="display:none; color: #38bdf8;">
+              <i data-lucide="crop" style="width: 13px; height: 13px;"></i>
+            </button>
+            <button class="btn-icon" id="btn-duplicate-item" title="Duplicate (Ctrl+D)">
+              <i data-lucide="copy" style="width: 13px; height: 13px;"></i>
+            </button>
+            <button class="btn-icon" id="btn-delete-item" style="color: #f87171;" title="Delete Selected (Del)">
+              <i data-lucide="trash-2" style="width: 13px; height: 13px;"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar-right">
+          <button class="tool-btn" id="btn-reset-page" style="color: var(--accent-amber);" title="Reset Page Changes">
+            <i data-lucide="rotate-ccw" style="width: 13px; height: 13px;"></i>
+            <span>Reset</span>
+          </button>
+          <div class="tool-divider"></div>
+          <button class="btn-icon" id="btn-undo" title="Undo (Ctrl+Z)" disabled>
+            <i data-lucide="undo" style="width: 13px; height: 13px;"></i>
+          </button>
+          <button class="btn-icon" id="btn-redo" title="Redo (Ctrl+Y)" disabled>
+            <i data-lucide="redo" style="width: 13px; height: 13px;"></i>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Main Workspace Container -->
+      <div class="workspace">
+        <!-- Left Sidebar -->
+        <aside class="sidebar" id="app-sidebar">
+          <div class="sidebar-tabs">
+            <button class="sidebar-tab active" data-tab="thumbnails">Thumbnails</button>
+            <button class="sidebar-tab" data-tab="structure">Text Structure</button>
+            <button class="sidebar-tab" data-tab="info">Doc Info</button>
+            <button class="sidebar-tab" data-tab="firebase" style="color: #60a5fa; font-weight: 600;">☁️ Cloud Docs</button>
+          </div>
+
+          <div class="sidebar-content">
+            <!-- Tab 1: Thumbnails -->
+            <div id="tab-thumbnails-content" class="thumbnails-list">
+              <!-- Rendered dynamically -->
+            </div>
+
+            <!-- Tab 2: Text Structure Tree -->
+            <div id="tab-structure-content" style="display: none;">
+              <div class="structure-header">
+                <div class="search-box">
+                  <i data-lucide="search" class="search-icon" style="width: 12px; height: 12px;"></i>
+                  <input type="text" id="structure-search-input" placeholder="Search detected text blocks..." />
+                </div>
+                <div style="font-size: 11px; color: var(--text-muted); display:flex; justify-content:space-between;">
+                  <span id="detected-count-label">0 blocks detected</span>
+                  <span id="modified-count-label">0 masked/edited</span>
+                </div>
+              </div>
+              <div class="text-tree-list" id="text-tree-list">
+                <!-- Dynamically populated -->
+              </div>
+            </div>
+
+            <!-- Tab 3: Doc Info & Anti-Ghosting Guide -->
+            <div id="tab-info-content" style="display: none;">
+              <div class="anti-ghosting-banner">
+                <i data-lucide="shield-check" style="width: 18px; height: 18px; flex-shrink: 0;"></i>
+                <div>
+                  <strong>Pro Features Active:</strong> Image Insertion with Crop, Blank Page Generation, and Zero-Ghosting Background Masking.
+                </div>
+              </div>
+
+              <div class="info-card">
+                <h4>Document Overview</h4>
+                <div class="info-row"><span class="info-label">File:</span><span class="info-val" id="info-val-file">-</span></div>
+                <div class="info-row"><span class="info-label">Total Pages:</span><span class="info-val" id="info-val-pages">0</span></div>
+                <div class="info-row"><span class="info-label">Current Page:</span><span class="info-val" id="info-val-curr">0</span></div>
+                <div class="info-row"><span class="info-label">Render Resolution:</span><span class="info-val" id="info-val-dpi">2.0x High-DPI</span></div>
+                <div class="info-row"><span class="info-label">Page Dimensions:</span><span class="info-val" id="info-val-dim">-</span></div>
+                <div class="info-row"><span class="info-label">Detected Text Lines:</span><span class="info-val" id="info-val-lines">0</span></div>
+              </div>
+
+              <div class="tips-box">
+                <strong style="color: #60a5fa; display: block; margin-bottom: 4px;">⚡ Pro Tools & Usage Guide:</strong>
+                <ul>
+                  <li><strong>Add Image & Crop:</strong> Upload any logo, signature, or photo. Adjust aspect ratio or freeform crop box before placing!</li>
+                  <li><strong>Add Blank Page:</strong> Click "+ Page" in the header or sidebar to create a fresh canvas for multi-page documents.</li>
+                  <li><strong>No Double-Text:</strong> Raster background text is wiped on selection, and single-instance Fabric textboxes take over cleanly.</li>
+                  <li><strong>Full Export:</strong> <code>pdf-lib</code> burns all original pages, added blank pages, cropped images, and text edits into a unified PDF.</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- Tab 4: Firebase Cloud & Traffic Hub -->
+            <div id="tab-firebase-content" style="display: none; padding: 12px; overflow-y: auto;">
+              <!-- Mounted by React portal -->
+            </div>
+          </div>
+        </aside>
+
+        <!-- Center Viewport with Canvas -->
+        <main class="canvas-viewport" id="viewport-container">
+          <div class="canvas-stage-wrapper" id="canvas-stage">
+            <canvas id="fabric-main-canvas"></canvas>
+            <!-- Hover highlight box -->
+            <div class="hover-guide-box" id="hover-guide">
+              <span class="hover-guide-label" id="hover-guide-label">Click to edit</span>
+            </div>
+          </div>
+
+          <!-- Floating Viewport Controls -->
+          <div class="floating-viewport-controls">
+            <button class="btn-icon" id="btn-fit-width" title="Fit to Width">
+              <i data-lucide="minimize-2" style="width: 13px; height: 13px;"></i>
+            </button>
+            <button class="btn-icon" id="btn-fit-page" title="Fit Page in Viewport">
+              <i data-lucide="maximize-2" style="width: 13px; height: 13px;"></i>
+            </button>
+            <div class="tool-divider" style="height:14px;"></div>
+            <button class="btn-icon" id="btn-reset-zoom" title="Reset Zoom to 100%">100%</button>
+          </div>
+        </main>
+      </div>
+
+      <!-- Fixed Bottom Status Bar / Footer -->
+      <footer class="app-footer" id="app-footer">
+        <div class="footer-left">
+          <span class="footer-indicator-dot"></span>
+          <span id="footer-doc-status">Ready</span>
+          <span class="footer-sep">|</span>
+          <span id="footer-page-info">Page 1 / 1</span>
+          <span class="footer-sep">|</span>
+          <span id="footer-blocks-info">0 blocks detected</span>
+        </div>
+        <div class="footer-right">
+          <span class="footer-tip">Double-click text to edit directly</span>
+          <span class="footer-sep">|</span>
+          <span class="footer-badge">Zero-Ghosting v2.3</span>
+        </div>
+      </footer>
+
+      <!-- Welcome / Dropzone Overlay -->
+      <div class="dropzone-overlay" id="dropzone-overlay">
+        <div class="dropzone-card" id="dropzone-card">
+          <div class="dropzone-icon-ring">
+            <i data-lucide="file-up" style="width: 28px; height: 28px;"></i>
+          </div>
+
+          <h3>Upload or Drop PDF Document</h3>
+          <p>
+            Zero double-text overlapping & no messy font shadowing.<br />
+            Single-instance line detection, image insertion with crop, blank page creation, and lossless PDF export.
+          </p>
+
+          <div class="dropzone-actions">
+            <button class="btn btn-primary" id="btn-browse-file" style="padding: 10px 22px; font-size: 13.5px;">
+              <i data-lucide="upload" style="width: 15px; height: 15px;"></i>
+              <span>Select PDF File</span>
+            </button>
+
+            <button class="sample-cta-btn" id="btn-load-sample">
+              <i data-lucide="zap" style="color: #f59e0b; width: 14px; height: 14px;"></i>
+              <span>Load Sample Offer Letter (Instant 1-Click Demo)</span>
+            </button>
+
+            <button class="btn btn-secondary" id="btn-start-blank-doc" style="margin-top: 4px; font-size: 12px;">
+              <i data-lucide="file-plus" style="width: 13px; height: 13px; color:#38bdf8;"></i>
+              <span>Or Start with a Blank Document</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- FEATURE 1: Image Crop Modal -->
+      <div id="crop-modal" class="modal-backdrop" style="display: none;">
+        <div class="crop-modal-card">
+          <div class="modal-header">
+            <h3>
+              <i data-lucide="crop" style="width: 16px; height: 16px; color:#38bdf8;"></i>
+              <span>Crop & Adjust Photo / Image</span>
+            </h3>
+            <button class="btn-icon" id="btn-close-crop-modal" title="Cancel">
+              <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <div class="crop-stage-container">
+              <canvas id="crop-preview-canvas"></canvas>
+            </div>
+
+            <div class="crop-toolbar">
+              <span style="font-size: 11px; color: var(--text-muted); margin-right: 4px;">Aspect Ratio:</span>
+              <button class="crop-chip active" data-ratio="free">Freeform</button>
+              <button class="crop-chip" data-ratio="1:1">1:1 Square</button>
+              <button class="crop-chip" data-ratio="4:3">4:3 Standard</button>
+              <button class="crop-chip" data-ratio="16:9">16:9 Wide</button>
+              <button class="crop-chip" data-ratio="3:1">3:1 Signature / Header</button>
+              <div class="tool-divider" style="height: 16px;"></div>
+              <button class="btn-icon" id="btn-rotate-crop-img" title="Rotate 90° Clockwise">
+                <i data-lucide="rotate-cw" style="width: 14px; height: 14px;"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-secondary" id="btn-cancel-crop">Cancel</button>
+            <button class="btn btn-secondary" id="btn-insert-uncropped" title="Insert image as-is without cropping">
+              Insert Full Image
+            </button>
+            <button class="btn btn-primary" id="btn-apply-crop">
+              <i data-lucide="check" style="width: 14px; height: 14px;"></i>
+              <span>Apply Crop & Insert</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toast Notification Container -->
+      <div class="toast" id="toast-notification">
+        <span id="toast-icon">✓</span>
+        <span id="toast-message">Notification message</span>
+      </div>
+
+      <!-- Hidden Inputs for File Selection -->
+      <input type="file" id="pdf-file-input" accept="application/pdf" />
+      <input type="file" id="image-file-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+    </div>
+
+    <!-- Application Script -->
+    <script>
+      (function () {
+        'use strict';
+
+        // Initialize PDF.js Worker
+        if (window.pdfjsLib) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        /**
+         * Global Application State
+         */
+        const App = {
+          pdfDoc: null,
+          pdfBytes: null,
+          fileName: 'document.pdf',
+          numPages: 0,
+          currentPageNum: 1,
+          zoomLevel: 1.0, // Visual zoom multiplier
+          highDpiScale: 2.0, // High-DPI 2x scale
+          activeTool: 'select', // 'select' | 'text' | 'erase' | 'shape'
+          activeShapeType: 'rect', // 'rect' | 'circle' | 'line' | 'arrow'
+          isDrawingShape: false,
+          activeShapeObj: null,
+          shapeStartX: 0,
+          shapeStartY: 0,
+          shapeDefaults: {
+            stroke: '#2563eb',
+            strokeWidth: 2,
+            fill: '#3b82f6',
+            isTransparent: false
+          },
+
+          // Perfect Typography Inheritance State
+          lastDetectedTypography: {
+            fontFamily: 'Inter, -apple-system, sans-serif',
+            fontSize: 14,
+            fontWeight: 'normal',
+            fontStyle: 'normal',
+            fill: '#0f172a',
+            textAlign: 'left'
+          },
+
+          // Per-page cache: Map<pageNum, PageState>
+          pageStates: new Map(),
+
+          // Active background canvas & rendering context
+          bgCanvas: null,
+          bgCtx: null,
+
+          // Fabric canvas instance
+          fabricCanvas: null,
+
+          // Active drawing states for Whiteout tool
+          isErasing: false,
+          eraseRect: null,
+          origX: 0,
+          origY: 0,
+
+          // History for undo/redo
+          history: [],
+          historyIndex: -1,
+          isUndoRedoing: false,
+
+          // Track modified/masked text block count
+          modifiedCount: 0,
+
+          // Crop Modal State
+          cropState: {
+            rawImage: null,
+            rotation: 0,
+            activeRatio: 'free', // 'free' | '1:1' | '4:3' | '16:9' | '3:1'
+            box: { x: 0, y: 0, w: 0, h: 0 },
+            isDragging: false,
+            isResizing: false,
+            dragHandle: null,
+            startX: 0,
+            startY: 0
+          }
+        };
+
+        // DOM Element References
+        const elements = {
+          fileInput: document.getElementById('pdf-file-input'),
+          imageFileInput: document.getElementById('image-file-input'),
+          uploadTriggerBtn: document.getElementById('btn-upload-trigger'),
+          browseFileBtn: document.getElementById('btn-browse-file'),
+          loadSampleBtn: document.getElementById('btn-load-sample'),
+          startBlankDocBtn: document.getElementById('btn-start-blank-doc'),
+          dropzoneOverlay: document.getElementById('dropzone-overlay'),
+          dropzoneCard: document.getElementById('dropzone-card'),
+          fileNameText: document.getElementById('file-name-text'),
+          fileDisplay: document.getElementById('file-display'),
+          pageNumDisplay: document.getElementById('page-num-display'),
+          prevPageBtn: document.getElementById('btn-prev-page'),
+          nextPageBtn: document.getElementById('btn-next-page'),
+          addPageHeaderBtn: document.getElementById('btn-add-page-header'),
+          zoomOutBtn: document.getElementById('btn-zoom-out'),
+          zoomInBtn: document.getElementById('btn-zoom-in'),
+          zoomLevelDisplay: document.getElementById('zoom-level-display'),
+          fitWidthBtn: document.getElementById('btn-fit-width'),
+          fitPageBtn: document.getElementById('btn-fit-page'),
+          resetZoomBtn: document.getElementById('btn-reset-zoom'),
+          exportPdfBtn: document.getElementById('btn-export-pdf'),
+          toggleSidebarBtn: document.getElementById('btn-toggle-sidebar'),
+          resetPageBtn: document.getElementById('btn-reset-page'),
+          maskAllBtn: document.getElementById('btn-mask-all'),
+          sidebar: document.getElementById('app-sidebar'),
+          viewportContainer: document.getElementById('viewport-container'),
+          canvasStage: document.getElementById('canvas-stage'),
+          fabricCanvasEl: document.getElementById('fabric-main-canvas'),
+          hoverGuide: document.getElementById('hover-guide'),
+          hoverGuideLabel: document.getElementById('hover-guide-label'),
+          toolSelect: document.getElementById('tool-select'),
+          toolAddText: document.getElementById('tool-add-text'),
+          toolErase: document.getElementById('tool-erase'),
+          toolShape: document.getElementById('tool-shape'),
+          shapeDropdownWrapper: document.getElementById('shape-dropdown-wrapper'),
+          shapeDropdownMenu: document.getElementById('shape-dropdown-menu'),
+          activeShapeIcon: document.getElementById('active-shape-icon'),
+          activeShapeLabel: document.getElementById('active-shape-label'),
+          shapeControlsGroup: document.getElementById('shape-controls-group'),
+          shapeStrokePicker: document.getElementById('shape-stroke-picker'),
+          shapeStrokeWidthSelect: document.getElementById('shape-stroke-width-select'),
+          shapeFillWrapper: document.getElementById('shape-fill-wrapper'),
+          shapeFillPicker: document.getElementById('shape-fill-picker'),
+          shapeTransparentToggleBtn: document.getElementById('shape-transparent-toggle-btn'),
+          shapeFillModeLabel: document.getElementById('shape-fill-mode-label'),
+          textFontFamilyGroup: document.getElementById('text-font-family-group'),
+          textFontSizeGroup: document.getElementById('text-font-size-group'),
+          textStyleGroup: document.getElementById('text-style-group'),
+          textColorGroup: document.getElementById('text-color-group'),
+          textAlignGroup: document.getElementById('text-align-group'),
+          addImageBtn: document.getElementById('btn-add-image'),
+          cropSelectedImgBtn: document.getElementById('btn-crop-selected-image'),
+          fontFamilySelect: document.getElementById('font-family-select'),
+          fontSizeInput: document.getElementById('font-size-input'),
+          fontSizeDecBtn: document.getElementById('btn-font-size-dec'),
+          fontSizeIncBtn: document.getElementById('btn-font-size-inc'),
+          boldToggleBtn: document.getElementById('btn-bold-toggle'),
+          italicToggleBtn: document.getElementById('btn-italic-toggle'),
+          textColorPicker: document.getElementById('text-color-picker'),
+          alignLeftBtn: document.getElementById('btn-align-left'),
+          alignCenterBtn: document.getElementById('btn-align-center'),
+          alignRightBtn: document.getElementById('btn-align-right'),
+          duplicateItemBtn: document.getElementById('btn-duplicate-item'),
+          deleteItemBtn: document.getElementById('btn-delete-item'),
+          undoBtn: document.getElementById('btn-undo'),
+          redoBtn: document.getElementById('btn-redo'),
+          tabThumbnailsContent: document.getElementById('tab-thumbnails-content'),
+          tabStructureContent: document.getElementById('tab-structure-content'),
+          tabInfoContent: document.getElementById('tab-info-content'),
+          textTreeList: document.getElementById('text-tree-list'),
+          structureSearchInput: document.getElementById('structure-search-input'),
+          detectedCountLabel: document.getElementById('detected-count-label'),
+          modifiedCountLabel: document.getElementById('modified-count-label'),
+          infoValFile: document.getElementById('info-val-file'),
+          infoValPages: document.getElementById('info-val-pages'),
+          infoValCurr: document.getElementById('info-val-curr'),
+          infoValDim: document.getElementById('info-val-dim'),
+          infoValLines: document.getElementById('info-val-lines'),
+          infoValDpi: document.getElementById('info-val-dpi'),
+          toast: document.getElementById('toast-notification'),
+          toastMessage: document.getElementById('toast-message'),
+          toastIcon: document.getElementById('toast-icon'),
+          // Crop Modal elements
+          cropModal: document.getElementById('crop-modal'),
+          cropPreviewCanvas: document.getElementById('crop-preview-canvas'),
+          closeCropModalBtn: document.getElementById('btn-close-crop-modal'),
+          cancelCropBtn: document.getElementById('btn-cancel-crop'),
+          insertUncroppedBtn: document.getElementById('btn-insert-uncropped'),
+          applyCropBtn: document.getElementById('btn-apply-crop'),
+          rotateCropImgBtn: document.getElementById('btn-rotate-crop-img'),
+          // Footer elements
+          footerStatus: document.getElementById('footer-doc-status'),
+          footerPageInfo: document.getElementById('footer-page-info'),
+          footerBlocksInfo: document.getElementById('footer-blocks-info')
+        };
+
+        /**
+         * FABRIC.JS HIDDEN TEXTAREA LOCKDOWN
+         * Permanently prevents mobile/WebView auto-zoom, scroll-into-view jumping,
+         * and footer displacement when double-clicking or editing text blocks.
+         */
+        if (window.fabric && fabric.IText) {
+          const origInitHiddenTextarea = fabric.IText.prototype.initHiddenTextarea;
+          fabric.IText.prototype.initHiddenTextarea = function() {
+            origInitHiddenTextarea.call(this);
+            if (this.hiddenTextarea) {
+              this.hiddenTextarea.style.position = 'fixed';
+              this.hiddenTextarea.style.top = '0px';
+              this.hiddenTextarea.style.left = '0px';
+              this.hiddenTextarea.style.width = '1px';
+              this.hiddenTextarea.style.height = '1px';
+              this.hiddenTextarea.style.opacity = '0';
+              this.hiddenTextarea.style.fontSize = '16px'; // >=16px prevents iOS/Android auto-zoom
+              this.hiddenTextarea.style.transform = 'translate3d(-9999px, -9999px, 0)';
+              this.hiddenTextarea.setAttribute('tabindex', '-1');
+              this.hiddenTextarea.setAttribute('autocomplete', 'off');
+              this.hiddenTextarea.setAttribute('autocorrect', 'off');
+              this.hiddenTextarea.setAttribute('autocapitalize', 'off');
+              this.hiddenTextarea.setAttribute('spellcheck', 'false');
+            }
+          };
+
+          const origEnterEditing = fabric.IText.prototype.enterEditing;
+          fabric.IText.prototype.enterEditing = function(e) {
+            const res = origEnterEditing.call(this, e);
+            if (this.hiddenTextarea) {
+              this.hiddenTextarea.style.position = 'fixed';
+              this.hiddenTextarea.style.top = '0px';
+              this.hiddenTextarea.style.left = '0px';
+              this.hiddenTextarea.style.width = '1px';
+              this.hiddenTextarea.style.height = '1px';
+              this.hiddenTextarea.style.opacity = '0';
+              this.hiddenTextarea.style.fontSize = '16px';
+              this.hiddenTextarea.style.transform = 'translate3d(-9999px, -9999px, 0)';
+              try {
+                this.hiddenTextarea.focus({ preventScroll: true });
+              } catch (err) {
+                this.hiddenTextarea.focus();
+              }
+            }
+            return res;
+          };
+
+          fabric.IText.prototype.updateTextareaPosition = function() {
+            if (this.hiddenTextarea) {
+              this.hiddenTextarea.style.position = 'fixed';
+              this.hiddenTextarea.style.top = '0px';
+              this.hiddenTextarea.style.left = '0px';
+              this.hiddenTextarea.style.fontSize = '16px';
+              this.hiddenTextarea.style.transform = 'translate3d(-9999px, -9999px, 0)';
+            }
+          };
+        }
+
+        /**
+         * Toast Helper
+         */
+        function showToast(message, icon = '✓', duration = 3000) {
+          elements.toastMessage.textContent = message;
+          elements.toastIcon.innerHTML = icon;
+          elements.toast.classList.add('show');
+          setTimeout(() => {
+            elements.toast.classList.remove('show');
+          }, duration);
+        }
+
+        /**
+         * Initialize Fabric Canvas
+         */
+        function initFabricCanvas() {
+          if (App.fabricCanvas) {
+            App.fabricCanvas.dispose();
+          }
+
+          App.fabricCanvas = new fabric.Canvas('fabric-main-canvas', {
+            preserveObjectStacking: true,
+            selection: true,
+            defaultCursor: 'default',
+            fireRightClick: true,
+            stopContextMenu: true,
+            enableRetinaScaling: false // CRITICAL: keeps canvas buffer size matched to viewport pixels, avoiding GPU texture blowout/blackouts
+          });
+
+          // Prevent native browser zoom/scroll on double-click
+          App.fabricCanvas.on('mouse:dblclick', (opt) => {
+            if (opt && opt.e) {
+              if (opt.e.preventDefault) opt.e.preventDefault();
+              if (opt.e.stopPropagation) opt.e.stopPropagation();
+            }
+          });
+
+          // Text editing entered / exited status feedback
+          App.fabricCanvas.on('text:editing:entered', () => {
+            if (elements.footerStatus) elements.footerStatus.textContent = 'Editing Text (Type in-place)';
+          });
+          App.fabricCanvas.on('text:editing:exited', () => {
+            if (elements.footerStatus) elements.footerStatus.textContent = 'Ready';
+          });
+
+          // Selection changes: update formatting toolbar & trigger anti-ghosting mask
+          App.fabricCanvas.on('selection:created', onCanvasSelectionChange);
+          App.fabricCanvas.on('selection:updated', onCanvasSelectionChange);
+          App.fabricCanvas.on('selection:cleared', onCanvasSelectionCleared);
+
+          // Text modification & overlay whiteout triggers
+          App.fabricCanvas.on('text:changed', onTextModified);
+          App.fabricCanvas.on('object:modified', onObjectModified);
+          App.fabricCanvas.on('object:moving', onObjectMoving);
+
+          // Hover feedback for detected text
+          App.fabricCanvas.on('mouse:over', onMouseOverObject);
+          App.fabricCanvas.on('mouse:out', onMouseOutObject);
+
+          // Whiteout drawing tool listeners
+          App.fabricCanvas.on('mouse:down', onMouseDown);
+          App.fabricCanvas.on('mouse:move', onMouseMove);
+          App.fabricCanvas.on('mouse:up', onMouseUp);
+
+          // Record history on changes
+          App.fabricCanvas.on('object:added', recordHistoryState);
+          App.fabricCanvas.on('object:removed', recordHistoryState);
+        }
+
+        /**
+         * Selection change handler: updates toolbar and immediately triggers
+         * anti-ghosting background cover patch on selected text!
+         */
+        function onCanvasSelectionChange(e) {
+          const obj = e.selected ? e.selected[0] : null;
+          if (!obj) return;
+
+          // If text block, wipe background under it
+          if (obj.isPdfText) {
+            wipeBackgroundUnderText(obj);
+          }
+
+          // Show/hide Crop button if image is selected
+          if (obj.type === 'image' || obj.isCustomImage) {
+            elements.cropSelectedImgBtn.style.display = 'inline-flex';
+          } else {
+            elements.cropSelectedImgBtn.style.display = 'none';
+          }
+
+          // Check if selected object is a Shape
+          const isShape = obj.isCustomShape || ['rect', 'circle', 'ellipse', 'line', 'path'].includes(obj.type);
+          if (isShape && obj.type !== 'textbox' && obj.type !== 'text' && !obj.isPdfText) {
+            elements.shapeControlsGroup.style.display = 'flex';
+            if (obj.stroke) {
+              elements.shapeStrokePicker.value = standardizeColorToHex(obj.stroke);
+            }
+            if (obj.strokeWidth) {
+              elements.shapeStrokeWidthSelect.value = String(obj.strokeWidth);
+            }
+            if (obj.fill === 'transparent' || obj.fill === 'rgba(0,0,0,0)' || obj.fill === 'rgba(0, 0, 0, 0)') {
+              elements.shapeTransparentToggleBtn.classList.add('active');
+              elements.shapeFillModeLabel.textContent = 'Fill: None';
+            } else {
+              elements.shapeTransparentToggleBtn.classList.remove('active');
+              elements.shapeFillModeLabel.textContent = 'Fill: Solid';
+              if (obj.fill) {
+                elements.shapeFillPicker.value = standardizeColorToHex(obj.fill);
+              }
+            }
+          } else if (App.activeTool !== 'shape') {
+            elements.shapeControlsGroup.style.display = 'none';
+          }
+
+          if (obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text') {
+            elements.fontFamilySelect.value = obj.fontFamily || 'Inter, -apple-system, sans-serif';
+            elements.fontSizeInput.value = Math.round(obj.fontSize || 14);
+
+            const isBold = obj.fontWeight === 'bold' || obj.fontWeight === 700 || obj.fontWeight === '700' || obj.fontWeight === '800' || obj.fontWeight === '900' || obj.fontWeight === '600';
+            elements.boldToggleBtn.classList.toggle('active', isBold);
+
+            const isItalic = obj.fontStyle === 'italic';
+            elements.italicToggleBtn.classList.toggle('active', isItalic);
+
+            const textColor = (obj.fill && obj.fill !== 'transparent') ? obj.fill : (obj.detectedFill || '#0f172a');
+            elements.textColorPicker.value = standardizeColorToHex(textColor);
+
+            // PERFECT INHERITANCE: Automatically inherit exact typography formatting
+            App.lastDetectedTypography = {
+              fontFamily: obj.fontFamily || 'Inter, -apple-system, sans-serif',
+              fontSize: Math.round(obj.fontSize || 14),
+              fontWeight: obj.fontWeight || 'normal',
+              fontStyle: obj.fontStyle || 'normal',
+              fill: standardizeColorToHex(textColor),
+              textAlign: obj.textAlign || 'left'
+            };
+          }
+
+          highlightSidebarItem(obj.id);
+        }
+
+        function onCanvasSelectionCleared() {
+          elements.boldToggleBtn.classList.remove('active');
+          elements.italicToggleBtn.classList.remove('active');
+          elements.cropSelectedImgBtn.style.display = 'none';
+          if (App.activeTool !== 'shape') {
+            elements.shapeControlsGroup.style.display = 'none';
+          }
+          clearSidebarHighlight();
+        }
+
+        function standardizeColorToHex(col) {
+          if (!col || col === 'transparent') return '#0f172a';
+          if (col.startsWith('#') && col.length === 7) return col;
+          if (col.startsWith('#') && col.length === 4) {
+            return '#' + col[1] + col[1] + col[2] + col[2] + col[3] + col[3];
+          }
+          if (col.startsWith('rgb')) {
+            const rgb = col.match(/\d+/g);
+            if (rgb && rgb.length >= 3) {
+              const r = parseInt(rgb[0]).toString(16).padStart(2, '0');
+              const g = parseInt(rgb[1]).toString(16).padStart(2, '0');
+              const b = parseInt(rgb[2]).toString(16).padStart(2, '0');
+              return `#${r}${g}${b}`;
+            }
+          }
+          return '#0f172a';
+        }
+
+        /**
+         * Helper: Create clean arrow SVG path data
+         */
+        function createArrowSvgPath(x1, y1, x2, y2, strokeWidth = 2) {
+          const headLen = Math.max(14, strokeWidth * 4.5);
+          const angle = Math.atan2(y2 - y1, x2 - x1);
+          const spread = Math.PI / 6.5; // ~28 degrees
+
+          const h1x = x2 - headLen * Math.cos(angle - spread);
+          const h1y = y2 - headLen * Math.sin(angle - spread);
+          const h2x = x2 - headLen * Math.cos(angle + spread);
+          const h2y = y2 - headLen * Math.sin(angle + spread);
+
+          // Shaft line + triangular arrowhead
+          return `M ${x1} ${y1} L ${x2} ${y2} M ${x2} ${y2} L ${h1x} ${h1y} L ${h2x} ${h2y} Z`;
+        }
+
+        /**
+         * BACKGROUND WHITEOUT MASK ON EDIT with SMART BACKGROUND COLOR SAMPLING
+         * Dynamically samples surrounding pixels to match colored boxes, sidebars, or tints
+         * instead of defaulting to white, while preserving strict bounding box clamping.
+         */
+        function wipeBackgroundUnderText(tb) {
+          if (!tb) return;
+
+          if (!tb.hasWipedBackground) {
+            const padX = 2;
+            const padY = 1;
+            const tbFontSize = tb.fontSize || 14;
+            const maxLineH = Math.max(10, Math.round(tbFontSize * 1.25));
+
+            const origL = (typeof tb.originalLeft === 'number') ? tb.originalLeft : tb.left;
+            const origT = (typeof tb.originalTop === 'number') ? tb.originalTop : tb.top;
+            const origW = (typeof tb.originalWidth === 'number') ? tb.originalWidth : (tb.width || 50);
+            const origH = (typeof tb.originalHeight === 'number') ? tb.originalHeight : (tb.height || maxLineH);
+
+            const wipeX = Math.max(0, Math.floor(origL - padX));
+            const wipeY = Math.max(0, Math.floor(origT - padY));
+            const wipeW = Math.max(8, Math.round(origW + (padX * 2)));
+            // STRICT CLAMP: height must never exceed the single line bounding box (at most 1.25x fontSize)
+            // This prevents the whiteout rectangle from expanding or bleeding into adjacent lines or lower canvas
+            const wipeH = Math.max(8, Math.min(Math.round(origH + (padY * 2)), maxLineH));
+
+            // DYNAMIC SMART BACKGROUND COLOR SAMPLING:
+            // Extract the matching container color (cream, light gray, pale tint) from surrounding pixels
+            let wipeColor = tb.docBgColor;
+            if (!wipeColor || wipeColor === '#FFFFFF') {
+              wipeColor = sampleSmartBackgroundColor(App.bgCtx, origL, origT, origW, origH, tb.detectedFill);
+            }
+            if (!wipeColor) wipeColor = '#FFFFFF';
+            tb.docBgColor = wipeColor;
+
+            // 1. Draw dynamic background-matching cover rectangle directly on background canvas context
+            if (App.bgCtx) {
+              App.bgCtx.save();
+              App.bgCtx.globalCompositeOperation = 'source-over';
+              App.bgCtx.fillStyle = wipeColor;
+              App.bgCtx.fillRect(wipeX, wipeY, wipeW, wipeH);
+              App.bgCtx.restore();
+            }
+
+            // 2. Insert dynamic color-matched fabric.Rect patch immediately behind text
+            if (!tb.coverPatch) {
+              const coverPatch = new fabric.Rect({
+                left: wipeX,
+                top: wipeY,
+                width: wipeW,
+                height: wipeH,
+                fill: wipeColor,
+                stroke: wipeColor,
+                strokeWidth: 0,
+                selectable: false,
+                evented: false,
+                isAutoCoverPatch: true,
+                associatedTextId: tb.id
+              });
+              App.fabricCanvas.add(coverPatch);
+              App.fabricCanvas.sendToBack(coverPatch);
+              tb.coverPatch = coverPatch;
+            }
+
+            // 3. Reveal editable text in Fabric
+            const textFill = (tb.detectedFill && tb.detectedFill !== '#ffffff' && tb.detectedFill !== '#fff')
+              ? tb.detectedFill
+              : '#0f172a';
+
+            tb.set({
+              fill: textFill,
+              opacity: 1
+            });
+
+            tb.hasWipedBackground = true;
+            tb.isModified = true;
+
+            App.modifiedCount++;
+            elements.modifiedCountLabel.textContent = `${App.modifiedCount} masked/edited`;
+            updateStructureListBadge(tb.id, true);
+
+            App.fabricCanvas.requestRenderAll();
+            const colorNote = (wipeColor !== '#FFFFFF') ? ` (${wipeColor})` : '';
+            showToast(`Background masked seamlessly${colorNote}`, '🛡️', 1200);
+          } else if (tb.coverPatch) {
+            const tbFontSize = tb.fontSize || 14;
+            const maxAllowedH = Math.round(tbFontSize * 1.35);
+            if (tb.left < tb.originalLeft || tb.width > tb.originalWidth) {
+              tb.coverPatch.set({
+                left: Math.min(tb.coverPatch.left, tb.left - 2),
+                width: Math.max(tb.originalWidth + 6, tb.width + 6),
+                height: Math.min(Math.max(tb.originalHeight + 4, tb.height + 4), maxAllowedH)
+              });
+              App.fabricCanvas.requestRenderAll();
+            }
+          }
+        }
+
+        function maskAllTextOnPage() {
+          if (!App.fabricCanvas) return;
+          showToast('Masking all background text blocks...', '<div class="spinner"></div>', 3000);
+
+          let count = 0;
+          App.fabricCanvas.getObjects().forEach((obj) => {
+            if (obj.isPdfText && !obj.hasWipedBackground) {
+              wipeBackgroundUnderText(obj);
+              count++;
+            }
+          });
+
+          recordHistoryState();
+          showToast(`All ${count} text blocks masked and editable!`, '✓', 3000);
+        }
+
+        function onTextModified(e) {
+          const tb = e.target;
+          if (!tb) return;
+          wipeBackgroundUnderText(tb);
+          recordHistoryState();
+          updateStructureListBadge(tb.id, true);
+        }
+
+        function onObjectModified(e) {
+          const obj = e.target;
+          if (!obj) return;
+          if (obj.isPdfText) {
+            wipeBackgroundUnderText(obj);
+            updateStructureListBadge(obj.id, true);
+          }
+          recordHistoryState();
+        }
+
+        function onObjectMoving(e) {
+          const obj = e.target;
+          if (obj && obj.isPdfText) {
+            wipeBackgroundUnderText(obj);
+          }
+        }
+
+        /**
+         * Hover inspection tooltip on detected text blocks
+         */
+        function onMouseOverObject(e) {
+          if (App.activeTool !== 'select') return;
+          const obj = e.target;
+          if (!obj || !obj.isPdfText) return;
+
+          elements.hoverGuide.style.display = 'block';
+          elements.hoverGuide.style.left = `${obj.left}px`;
+          elements.hoverGuide.style.top = `${obj.top}px`;
+          elements.hoverGuide.style.width = `${Math.max(obj.width, 30)}px`;
+          elements.hoverGuide.style.height = `${Math.max(obj.height, 14)}px`;
+
+          const boldStr = (obj.fontWeight === 'bold' || obj.fontWeight === 700) ? ' • Bold' : '';
+          const italicStr = obj.fontStyle === 'italic' ? ' • Italic' : '';
+          elements.hoverGuideLabel.textContent = `Click to edit: ${Math.round(obj.fontSize)}px${boldStr}${italicStr}`;
+        }
+
+        function onMouseOutObject() {
+          elements.hoverGuide.style.display = 'none';
+        }
+
+        /**
+         * Mouse Down Handler: Erase, Add Text (with Perfect Inheritance), or Shape Drawing/Stamping
+         */
+        function onMouseDown(o) {
+          const pointer = App.fabricCanvas.getPointer(o.e);
+
+          if (App.activeTool === 'erase') {
+            App.isErasing = true;
+            App.origX = pointer.x;
+            App.origY = pointer.y;
+
+            App.eraseRect = new fabric.Rect({
+              left: App.origX,
+              top: App.origY,
+              originX: 'left',
+              originY: 'top',
+              width: 0,
+              height: 0,
+              fill: '#ffffff',
+              stroke: '#3b82f6',
+              strokeWidth: 1,
+              strokeDashArray: [4, 4],
+              transparentCorners: false,
+              cornerColor: '#2563eb',
+              cornerSize: 6,
+              hasBorders: true,
+              hasControls: true,
+              isManualEraser: true
+            });
+            App.fabricCanvas.add(App.eraseRect);
+          } else if (App.activeTool === 'text') {
+            // PERFECT INHERITANCE: Inherit detected font family, size, weight, italic, ink color
+            const inherited = App.lastDetectedTypography || {
+              fontFamily: elements.fontFamilySelect.value || 'Inter, -apple-system, sans-serif',
+              fontSize: parseInt(elements.fontSizeInput.value) || 14,
+              fontWeight: elements.boldToggleBtn.classList.contains('active') ? 'bold' : 'normal',
+              fontStyle: elements.italicToggleBtn.classList.contains('active') ? 'italic' : 'normal',
+              fill: elements.textColorPicker.value || '#0f172a',
+              textAlign: 'left'
+            };
+
+            const newText = new fabric.Textbox('Type text here...', {
+              left: pointer.x,
+              top: pointer.y,
+              width: Math.max(160, inherited.fontSize * 10),
+              fontSize: inherited.fontSize,
+              fontFamily: inherited.fontFamily,
+              fontWeight: inherited.fontWeight,
+              fontStyle: inherited.fontStyle,
+              fill: inherited.fill,
+              textAlign: inherited.textAlign,
+              cursorColor: '#2563eb',
+              borderColor: '#3b82f6',
+              cornerColor: '#2563eb',
+              cornerSize: 7,
+              transparentCorners: false,
+              isNewCustomText: true
+            });
+            App.fabricCanvas.add(newText);
+            App.fabricCanvas.setActiveObject(newText);
+            newText.enterEditing();
+            newText.selectAll();
+            setTool('select');
+            recordHistoryState();
+          } else if (App.activeTool === 'shape') {
+            // GEOMETRIC SHAPE DRAWING / STAMPING MODE
+            App.isDrawingShape = true;
+            App.shapeStartX = pointer.x;
+            App.shapeStartY = pointer.y;
+
+            const stroke = App.shapeDefaults.stroke;
+            const strokeWidth = App.shapeDefaults.strokeWidth;
+            const fill = App.shapeDefaults.isTransparent ? 'transparent' : App.shapeDefaults.fill;
+
+            if (App.activeShapeType === 'rect') {
+              App.activeShapeObj = new fabric.Rect({
+                left: pointer.x,
+                top: pointer.y,
+                originX: 'left',
+                originY: 'top',
+                width: 0,
+                height: 0,
+                fill: fill,
+                stroke: stroke,
+                strokeWidth: strokeWidth,
+                transparentCorners: false,
+                cornerColor: '#2563eb',
+                cornerSize: 8,
+                isCustomShape: true,
+                shapeType: 'rect'
+              });
+            } else if (App.activeShapeType === 'circle') {
+              App.activeShapeObj = new fabric.Ellipse({
+                left: pointer.x,
+                top: pointer.y,
+                originX: 'left',
+                originY: 'top',
+                rx: 0,
+                ry: 0,
+                fill: fill,
+                stroke: stroke,
+                strokeWidth: strokeWidth,
+                transparentCorners: false,
+                cornerColor: '#2563eb',
+                cornerSize: 8,
+                isCustomShape: true,
+                shapeType: 'circle'
+              });
+            } else if (App.activeShapeType === 'line') {
+              App.activeShapeObj = new fabric.Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+                stroke: stroke,
+                strokeWidth: strokeWidth,
+                transparentCorners: false,
+                cornerColor: '#2563eb',
+                cornerSize: 8,
+                isCustomShape: true,
+                shapeType: 'line'
+              });
+            } else if (App.activeShapeType === 'arrow') {
+              const pathStr = createArrowSvgPath(pointer.x, pointer.y, pointer.x, pointer.y, strokeWidth);
+              App.activeShapeObj = new fabric.Path(pathStr, {
+                stroke: stroke,
+                strokeWidth: strokeWidth,
+                fill: stroke,
+                strokeLineCap: 'round',
+                strokeLineJoin: 'round',
+                transparentCorners: false,
+                cornerColor: '#2563eb',
+                cornerSize: 8,
+                isCustomShape: true,
+                shapeType: 'arrow'
+              });
+              App.activeShapeObj.arrowX1 = pointer.x;
+              App.activeShapeObj.arrowY1 = pointer.y;
+              App.activeShapeObj.arrowX2 = pointer.x;
+              App.activeShapeObj.arrowY2 = pointer.y;
+            }
+
+            if (App.activeShapeObj) {
+              App.fabricCanvas.add(App.activeShapeObj);
+            }
+          }
+        }
+
+        /**
+         * Mouse Move Handler: Handles dynamic shape drawing and white-out resizing
+         */
+        function onMouseMove(o) {
+          const pointer = App.fabricCanvas ? App.fabricCanvas.getPointer(o.e) : null;
+          if (!pointer) return;
+
+          if (App.isErasing && App.eraseRect) {
+            if (App.origX > pointer.x) {
+              App.eraseRect.set({ left: Math.abs(pointer.x) });
+            }
+            if (App.origY > pointer.y) {
+              App.eraseRect.set({ top: Math.abs(pointer.y) });
+            }
+
+            App.eraseRect.set({
+              width: Math.abs(App.origX - pointer.x),
+              height: Math.abs(App.origY - pointer.y)
+            });
+            App.fabricCanvas.requestRenderAll();
+          } else if (App.isDrawingShape && App.activeShapeObj) {
+            const startX = App.shapeStartX;
+            const startY = App.shapeStartY;
+
+            if (App.activeShapeType === 'rect') {
+              const left = Math.min(startX, pointer.x);
+              const top = Math.min(startY, pointer.y);
+              const width = Math.abs(pointer.x - startX);
+              const height = Math.abs(pointer.y - startY);
+              App.activeShapeObj.set({ left, top, width, height });
+            } else if (App.activeShapeType === 'circle') {
+              const left = Math.min(startX, pointer.x);
+              const top = Math.min(startY, pointer.y);
+              const rx = Math.abs(pointer.x - startX) / 2;
+              const ry = Math.abs(pointer.y - startY) / 2;
+              App.activeShapeObj.set({ left, top, rx, ry });
+            } else if (App.activeShapeType === 'line') {
+              App.activeShapeObj.set({ x2: pointer.x, y2: pointer.y });
+            } else if (App.activeShapeType === 'arrow') {
+              const stroke = App.shapeDefaults.stroke;
+              const strokeWidth = App.shapeDefaults.strokeWidth;
+              const pathStr = createArrowSvgPath(startX, startY, pointer.x, pointer.y, strokeWidth);
+              App.fabricCanvas.remove(App.activeShapeObj);
+              App.activeShapeObj = new fabric.Path(pathStr, {
+                stroke: stroke,
+                strokeWidth: strokeWidth,
+                fill: stroke,
+                strokeLineCap: 'round',
+                strokeLineJoin: 'round',
+                transparentCorners: false,
+                cornerColor: '#2563eb',
+                cornerSize: 8,
+                isCustomShape: true,
+                shapeType: 'arrow'
+              });
+              App.activeShapeObj.arrowX1 = startX;
+              App.activeShapeObj.arrowY1 = startY;
+              App.activeShapeObj.arrowX2 = pointer.x;
+              App.activeShapeObj.arrowY2 = pointer.y;
+              App.fabricCanvas.add(App.activeShapeObj);
+            }
+            App.fabricCanvas.requestRenderAll();
+          }
+        }
+
+        /**
+         * Mouse Up Handler: Finalizes white-out or Shape Drawing/Stamping
+         */
+        function onMouseUp(o) {
+          const pointer = (App.fabricCanvas && o && o.e) ? App.fabricCanvas.getPointer(o.e) : null;
+
+          if (App.isErasing && App.eraseRect) {
+            App.isErasing = false;
+            if (App.eraseRect.width < 5 && App.eraseRect.height < 5) {
+              App.fabricCanvas.remove(App.eraseRect);
+            } else {
+              App.eraseRect.set({
+                stroke: 'transparent',
+                strokeWidth: 0
+              });
+              showToast('White-out mask created', '✓', 1500);
+              recordHistoryState();
+            }
+            App.eraseRect = null;
+            setTool('select');
+          } else if (App.isDrawingShape && App.activeShapeObj) {
+            App.isDrawingShape = false;
+            const shape = App.activeShapeObj;
+            App.activeShapeObj = null;
+
+            const stroke = App.shapeDefaults.stroke;
+            const strokeWidth = App.shapeDefaults.strokeWidth;
+            const fill = App.shapeDefaults.isTransparent ? 'transparent' : App.shapeDefaults.fill;
+
+            // STAMPING MODE: If drag distance < 8px, stamp default-sized shape
+            if (App.activeShapeType === 'rect') {
+              if (shape.width < 8 && shape.height < 8) {
+                shape.set({ width: 140, height: 80 });
+              }
+            } else if (App.activeShapeType === 'circle') {
+              if (shape.rx < 5 && shape.ry < 5) {
+                shape.set({ rx: 50, ry: 50 });
+              }
+            } else if (App.activeShapeType === 'line') {
+              const len = Math.hypot(shape.x2 - shape.x1, shape.y2 - shape.y1);
+              if (len < 8) {
+                shape.set({ x2: shape.x1 + 140, y2: shape.y1 });
+              }
+            } else if (App.activeShapeType === 'arrow') {
+              const pX = pointer ? pointer.x : App.shapeStartX;
+              const pY = pointer ? pointer.y : App.shapeStartY;
+              const len = Math.hypot(pX - App.shapeStartX, pY - App.shapeStartY);
+              if (len < 8) {
+                App.fabricCanvas.remove(shape);
+                const pathStr = createArrowSvgPath(App.shapeStartX, App.shapeStartY, App.shapeStartX + 140, App.shapeStartY + 30, strokeWidth);
+                const stampedArrow = new fabric.Path(pathStr, {
+                  stroke: stroke,
+                  strokeWidth: strokeWidth,
+                  fill: stroke,
+                  strokeLineCap: 'round',
+                  strokeLineJoin: 'round',
+                  transparentCorners: false,
+                  cornerColor: '#2563eb',
+                  cornerSize: 8,
+                  isCustomShape: true,
+                  shapeType: 'arrow'
+                });
+                App.fabricCanvas.add(stampedArrow);
+                stampedArrow.setCoords();
+                App.fabricCanvas.setActiveObject(stampedArrow);
+                setTool('select');
+                App.fabricCanvas.requestRenderAll();
+                recordHistoryState();
+                showToast('Arrow shape stamped. Drag or transform freely.', '✓', 1800);
+                return;
+              }
+            }
+
+            shape.setCoords();
+            App.fabricCanvas.setActiveObject(shape);
+            setTool('select');
+            App.fabricCanvas.requestRenderAll();
+            recordHistoryState();
+            showToast('Shape placed. Adjust with controls or handles.', '✓', 1800);
+          }
+        }
+
+        /**
+         * Tool Switching
+         */
+        function setTool(toolName, shapeType) {
+          App.activeTool = toolName;
+          if (shapeType) {
+            App.activeShapeType = shapeType;
+          }
+
+          elements.toolSelect.classList.toggle('active', toolName === 'select');
+          elements.toolAddText.classList.toggle('active', toolName === 'text');
+          elements.toolErase.classList.toggle('active', toolName === 'erase');
+          elements.toolShape.classList.toggle('active', toolName === 'shape');
+
+          if (toolName === 'shape') {
+            elements.shapeControlsGroup.style.display = 'flex';
+          } else {
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            const isShape = active && (active.isCustomShape || ['rect', 'circle', 'ellipse', 'line', 'path'].includes(active.type));
+            elements.shapeControlsGroup.style.display = isShape ? 'flex' : 'none';
+          }
+
+          if (!App.fabricCanvas) return;
+
+          if (toolName === 'select') {
+            App.fabricCanvas.defaultCursor = 'default';
+            App.fabricCanvas.selection = true;
+            App.fabricCanvas.forEachObject((obj) => {
+              if (!obj.isAutoCoverPatch) obj.selectable = true;
+            });
+          } else if (toolName === 'text') {
+            App.fabricCanvas.defaultCursor = 'text';
+            App.fabricCanvas.discardActiveObject();
+            App.fabricCanvas.requestRenderAll();
+          } else if (toolName === 'erase') {
+            App.fabricCanvas.defaultCursor = 'crosshair';
+            App.fabricCanvas.discardActiveObject();
+            App.fabricCanvas.requestRenderAll();
+          } else if (toolName === 'shape') {
+            App.fabricCanvas.defaultCursor = 'crosshair';
+            App.fabricCanvas.discardActiveObject();
+            App.fabricCanvas.requestRenderAll();
+          }
+        }
+
+        /**
+         * Undo / Redo Mechanism with Complete Shape & Font Serialization
+         */
+        function recordHistoryState() {
+          if (App.isUndoRedoing || !App.fabricCanvas) return;
+          const json = JSON.stringify(App.fabricCanvas.toJSON([
+            'isPdfText', 'originalText', 'originalLeft', 'originalTop',
+            'originalWidth', 'originalHeight', 'hasWipedBackground',
+            'associatedTextId', 'isAutoCoverPatch', 'isManualEraser', 'id',
+            'docBgColor', 'detectedFill', 'isCustomImage',
+            'isCustomShape', 'shapeType', 'stroke', 'strokeWidth', 'fill',
+            'rx', 'ry', 'x1', 'y1', 'x2', 'y2'
+          ]));
+
+          App.history = App.history.slice(0, App.historyIndex + 1);
+          App.history.push(json);
+          App.historyIndex = App.history.length - 1;
+
+          updateUndoRedoButtons();
+        }
+
+        function undo() {
+          if (App.historyIndex > 0) {
+            App.historyIndex--;
+            loadHistoryState(App.history[App.historyIndex]);
+          }
+        }
+
+        function redo() {
+          if (App.historyIndex < App.history.length - 1) {
+            App.historyIndex++;
+            loadHistoryState(App.history[App.historyIndex]);
+          }
+        }
+
+        function loadHistoryState(json) {
+          if (!json || !App.fabricCanvas) return;
+          App.isUndoRedoing = true;
+          App.fabricCanvas.loadFromJSON(json, () => {
+            App.fabricCanvas.requestRenderAll();
+            App.isUndoRedoing = false;
+            updateUndoRedoButtons();
+          });
+        }
+
+        function updateUndoRedoButtons() {
+          elements.undoBtn.disabled = App.historyIndex <= 0;
+          elements.redoBtn.disabled = App.historyIndex >= App.history.length - 1;
+        }
+
+        /**
+         * Load PDF File from ArrayBuffer or Uint8Array
+         */
+        async function loadPdfDocument(dataBuffer, name = 'document.pdf') {
+          try {
+            showToast('Parsing PDF text structure & fonts...', '<div class="spinner"></div>', 10000);
+
+            App.fileName = name;
+            App.pdfBytes = dataBuffer;
+            elements.fileNameText.textContent = name;
+            elements.fileDisplay.title = name;
+            elements.infoValFile.textContent = name;
+
+            const loadingTask = window.pdfjsLib.getDocument({
+              data: dataBuffer,
+              cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+              cMapPacked: true
+            });
+
+            App.pdfDoc = await loadingTask.promise;
+            App.numPages = App.pdfDoc.numPages;
+            App.currentPageNum = 1;
+            App.pageStates.clear();
+            App.history = [];
+            App.historyIndex = -1;
+            App.modifiedCount = 0;
+
+            elements.pageNumDisplay.textContent = `1 / ${App.numPages}`;
+            elements.prevPageBtn.disabled = true;
+            elements.nextPageBtn.disabled = App.numPages <= 1;
+            elements.infoValPages.textContent = App.numPages;
+            elements.dropzoneOverlay.style.display = 'none';
+
+            // Generate Page Thumbnails in Sidebar
+            generateSidebarThumbnails();
+
+            // Render First Page at High-DPI
+            await renderPage(1);
+
+            showToast(`PDF loaded: ${App.numPages} page(s) ready for editing!`, '✓', 3000);
+          } catch (err) {
+            console.error('Failed to load PDF:', err);
+            showToast('Error loading PDF: ' + (err.message || 'Invalid format'), '✕', 4000);
+          }
+        }
+
+        /**
+         * FEATURE 2: ADD NEW BLANK PAGE OPTION
+         * Inserts a brand new blank white page (matching document dimensions) into the document array,
+         * updates page counters/thumbnails, and switches the viewport to the fresh canvas.
+         */
+        function addNewBlankPage() {
+          // Determine standard dimensions (match previous page or default to US Letter 612x792 pt)
+          let unscaledW = 612;
+          let unscaledH = 792;
+
+          if (App.pageStates.has(App.currentPageNum)) {
+            const current = App.pageStates.get(App.currentPageNum);
+            unscaledW = current.unscaledViewport.width;
+            unscaledH = current.unscaledViewport.height;
+          }
+
+          App.numPages++;
+          const newPageNum = App.numPages;
+
+          const vpW = unscaledW * App.highDpiScale;
+          const vpH = unscaledH * App.highDpiScale;
+
+          // Create a pure white background canvas
+          const blankCanvas = document.createElement('canvas');
+          blankCanvas.width = vpW;
+          blankCanvas.height = vpH;
+          const bctx = blankCanvas.getContext('2d');
+          bctx.fillStyle = '#FFFFFF';
+          bctx.fillRect(0, 0, vpW, vpH);
+          const bgDataUrl = blankCanvas.toDataURL('image/png');
+
+          // Register new page state
+          App.pageStates.set(newPageNum, {
+            pageNum: newPageNum,
+            unscaledViewport: { width: unscaledW, height: unscaledH },
+            viewport: { width: vpW, height: vpH, scale: App.highDpiScale },
+            textLines: [],
+            bgDataUrl: bgDataUrl,
+            canvasJson: null,
+            isBlankPage: true
+          });
+
+          // Hide dropzone if open
+          elements.dropzoneOverlay.style.display = 'none';
+          if (!App.fileName || App.fileName === 'document.pdf') {
+            App.fileName = 'new-document.pdf';
+            elements.fileNameText.textContent = App.fileName;
+            elements.infoValFile.textContent = App.fileName;
+          }
+
+          // Update page counter and UI
+          elements.pageNumDisplay.textContent = `${newPageNum} / ${App.numPages}`;
+          elements.infoValPages.textContent = App.numPages;
+
+          // Re-generate Thumbnails
+          generateSidebarThumbnails();
+
+          // Switch viewport to the new page
+          renderPage(newPageNum);
+
+          showToast(`New blank page ${newPageNum} created!`, '✓', 2500);
+        }
+
+        /**
+         * Render Page: Handles both existing PDF.js pages AND dynamically added blank pages
+         */
+        async function renderPage(pageNum) {
+          try {
+            showToast(`Rendering page ${pageNum}...`, '<div class="spinner"></div>', 4000);
+
+            // Save previous page canvas state
+            if (App.fabricCanvas && App.pageStates.has(App.currentPageNum)) {
+              const prev = App.pageStates.get(App.currentPageNum);
+              prev.canvasJson = App.fabricCanvas.toJSON([
+                'isPdfText', 'originalText', 'originalLeft', 'originalTop',
+                'originalWidth', 'originalHeight', 'hasWipedBackground',
+                'associatedTextId', 'isAutoCoverPatch', 'isManualEraser', 'id',
+                'docBgColor', 'detectedFill', 'isCustomImage',
+                'isCustomShape', 'shapeType', 'stroke', 'strokeWidth', 'fill',
+                'rx', 'ry', 'x1', 'y1', 'x2', 'y2'
+              ]);
+            }
+
+            App.currentPageNum = pageNum;
+            elements.pageNumDisplay.textContent = `${pageNum} / ${App.numPages}`;
+            elements.prevPageBtn.disabled = pageNum <= 1;
+            elements.nextPageBtn.disabled = pageNum >= App.numPages;
+            elements.infoValCurr.textContent = pageNum;
+
+            // Highlight active thumbnail
+            updateActiveThumbnail(pageNum);
+
+            let pageState = App.pageStates.get(pageNum);
+            let unscaledViewport = null;
+            let viewport = null;
+            let bgCanvas = null;
+            let bgCtx = null;
+            let textLines = [];
+
+            // Case A: Page is a dynamically created Blank Page
+            if (pageState && pageState.isBlankPage) {
+              unscaledViewport = pageState.unscaledViewport;
+              viewport = pageState.viewport;
+
+              bgCanvas = document.createElement('canvas');
+              bgCanvas.width = viewport.width;
+              bgCanvas.height = viewport.height;
+              bgCtx = bgCanvas.getContext('2d');
+              bgCtx.fillStyle = '#FFFFFF';
+              bgCtx.fillRect(0, 0, viewport.width, viewport.height);
+              App.bgCanvas = bgCanvas;
+              App.bgCtx = bgCtx;
+            }
+            // Case B: Page is from the loaded PDF Document
+            else if (App.pdfDoc) {
+              const page = await App.pdfDoc.getPage(pageNum);
+              unscaledViewport = page.getViewport({ scale: 1.0 });
+
+              const renderScale = App.highDpiScale;
+              viewport = page.getViewport({ scale: renderScale });
+
+              bgCanvas = document.createElement('canvas');
+              bgCanvas.width = viewport.width;
+              bgCanvas.height = viewport.height;
+              bgCtx = bgCanvas.getContext('2d', { willReadFrequently: true });
+              App.bgCanvas = bgCanvas;
+              App.bgCtx = bgCtx;
+
+              // Render PDF background pixels ONLY (No HTML text layer)
+              await page.render({
+                canvasContext: bgCtx,
+                viewport: viewport
+              }).promise;
+
+              if (!pageState) {
+                const textContent = await page.getTextContent({ normalizeWhitespace: true });
+                textLines = extractAndDeduplicateTextLines(textContent.items, viewport, bgCtx);
+                pageState = {
+                  pageNum: pageNum,
+                  unscaledViewport: unscaledViewport,
+                  viewport: viewport,
+                  textLines: textLines,
+                  bgDataUrl: bgCanvas.toDataURL('image/png'),
+                  canvasJson: null,
+                  isBlankPage: false
+                };
+                App.pageStates.set(pageNum, pageState);
+              } else {
+                textLines = pageState.textLines;
+              }
+            } else {
+              return;
+            }
+
+            elements.infoValDim.textContent = `${Math.round(unscaledViewport.width)} × ${Math.round(unscaledViewport.height)} pt`;
+
+            // Adjust stage wrapper visual size with zoom transform
+            elements.canvasStage.style.width = `${viewport.width}px`;
+            elements.canvasStage.style.height = `${viewport.height}px`;
+
+            const cssScale = (App.zoomLevel / App.highDpiScale);
+            elements.canvasStage.style.transform = `scale(${cssScale})`;
+
+            // Initialize Fabric Canvas matching exact high-dpi dimensions
+            initFabricCanvas();
+            App.fabricCanvas.setWidth(viewport.width);
+            App.fabricCanvas.setHeight(viewport.height);
+
+            // Set the rendered visual PDF page as background image
+            const bgDataUrl = bgCanvas.toDataURL('image/png');
+            await new Promise((resolve) => {
+              fabric.Image.fromURL(bgDataUrl, (img) => {
+                img.set({
+                  originX: 'left',
+                  originY: 'top',
+                  left: 0,
+                  top: 0,
+                  selectable: false,
+                  evented: false
+                });
+                App.fabricCanvas.setBackgroundImage(img, () => {
+                  App.fabricCanvas.renderAll();
+                  resolve();
+                });
+              });
+            });
+
+            // Populate Fabric Canvas objects
+            if (pageState && pageState.canvasJson) {
+              App.fabricCanvas.loadFromJSON(pageState.canvasJson, () => {
+                App.fabricCanvas.renderAll();
+              });
+            } else if (textLines.length > 0) {
+              textLines.forEach((line) => {
+                const textbox = new fabric.Textbox(line.text, {
+                  id: line.id,
+                  left: line.left,
+                  top: line.top,
+                  width: Math.max(line.width + 6, 30),
+                  fontSize: line.fontSize,
+                  fontFamily: line.fontFamily,
+                  fontWeight: line.fontWeight,
+                  fontStyle: line.fontStyle,
+                  detectedFill: line.fill,
+                  fill: 'transparent',
+                  backgroundColor: 'rgba(59, 130, 246, 0.001)',
+                  padding: 2,
+                  borderColor: '#3b82f6',
+                  cornerColor: '#2563eb',
+                  cornerSize: 8,
+                  transparentCorners: false,
+                  cursorColor: '#2563eb',
+                  editingBorderColor: '#2563eb',
+                  hasControls: true,
+                  hasBorders: true,
+                  lockRotation: true,
+                  isPdfText: true,
+                  originalText: line.text,
+                  originalLeft: line.left,
+                  originalTop: line.top,
+                  originalWidth: line.width,
+                  originalHeight: line.height,
+                  hasWipedBackground: false,
+                  docBgColor: line.docBgColor || '#ffffff'
+                });
+
+                textbox.on('editing:entered', () => {
+                  wipeBackgroundUnderText(textbox);
+                });
+
+                App.fabricCanvas.add(textbox);
+              });
+
+              App.fabricCanvas.renderAll();
+            }
+
+            // Populate Text Structure List
+            populateTextStructureList(textLines);
+            elements.infoValLines.textContent = textLines.length;
+            elements.detectedCountLabel.textContent = `${textLines.length} blocks detected`;
+
+            // Update stable footer info
+            if (elements.footerPageInfo) {
+              elements.footerPageInfo.textContent = `Page ${pageNum} / ${App.numPages}`;
+            }
+            if (elements.footerBlocksInfo) {
+              elements.footerBlocksInfo.textContent = `${textLines.length} blocks detected`;
+            }
+            if (elements.footerStatus) {
+              elements.footerStatus.textContent = 'Ready';
+            }
+
+            recordHistoryState();
+
+            if (window.lucide) window.lucide.createIcons();
+
+            showToast(`Page ${pageNum} loaded.`, '✓', 1500);
+          } catch (err) {
+            console.error('Page render error:', err);
+            showToast('Error rendering page: ' + err.message, '✕', 4000);
+          }
+        }
+
+        /**
+         * Precise Text Extraction & Deduplication with Strict Coordinate Scaling
+         */
+        function extractAndDeduplicateTextLines(items, viewport, bgCtx) {
+          if (!items || items.length === 0) return [];
+
+          const rawList = [];
+
+          items.forEach((item, index) => {
+            const str = item.str;
+            if (!str || str.trim().length === 0) return;
+
+            // In PDF.js, item.transform = [a, b, c, d, tx, ty]
+            const tx = item.transform[4];
+            const ty = item.transform[5];
+            // viewport.convertToViewportPoint maps PDF coordinates (points) to canvas rendering pixels
+            // taking into account scale (e.g. 2.0x DPR), page rotation, and viewBox offsets
+            const [vx, vy] = viewport.convertToViewportPoint(tx, ty);
+
+            // Compute font size in canvas pixels
+            const fontScaleX = Math.hypot(item.transform[0], item.transform[1]);
+            const fontScaleY = Math.hypot(item.transform[2], item.transform[3]);
+            const fontScale = fontScaleY > 0 ? fontScaleY : (fontScaleX > 0 ? fontScaleX : 12);
+            const fontSize = Math.max(7, fontScale * viewport.scale);
+
+            // In canvas coordinates, vy is the exact glyph baseline.
+            // Text ascenders sit ~0.82 * fontSize above baseline.
+            const baselineY = vy;
+            const top = baselineY - (fontSize * 0.82);
+            const left = vx;
+            let width = (item.width || 0) * viewport.scale;
+            if (width <= 0) {
+              width = item.str.length * (fontSize * 0.55);
+            }
+            const height = fontSize * 1.15;
+
+            const fontFormat = detectFontFormatting(item.fontName);
+
+            rawList.push({
+              index: index,
+              str: str,
+              left: Math.round(left * 10) / 10,
+              top: Math.round(top * 10) / 10,
+              baselineY: Math.round(baselineY * 10) / 10,
+              width: Math.round(width * 10) / 10,
+              height: Math.round(height * 10) / 10,
+              fontSize: Math.round(fontSize * 10) / 10,
+              fontFamily: fontFormat.fontFamily,
+              fontWeight: fontFormat.fontWeight,
+              fontStyle: fontFormat.fontStyle
+            });
+          });
+
+          // Deduplicate fake-bolding duplicates & shadows (common in vector PDFs)
+          const deduplicated = [];
+          rawList.forEach((curr) => {
+            const isDuplicate = deduplicated.some((existing) => {
+              const isSameText =
+                existing.str === curr.str ||
+                existing.str.trim() === curr.str.trim();
+              const isCloseX = Math.abs(existing.left - curr.left) < Math.max(3, curr.fontSize * 0.25);
+              const isCloseY = Math.abs(existing.baselineY - curr.baselineY) < Math.max(2, curr.fontSize * 0.2);
+              return isSameText && isCloseX && isCloseY;
+            });
+
+            if (!isDuplicate) {
+              deduplicated.push(curr);
+            }
+          });
+
+          // Sort in natural reading order: baseline first, then left-to-right
+          deduplicated.sort((a, b) => {
+            const lineThreshold = Math.max(3, Math.min(a.fontSize, b.fontSize) * 0.25);
+            const yDiff = a.baselineY - b.baselineY;
+            if (Math.abs(yDiff) > lineThreshold) {
+              return yDiff;
+            }
+            return a.left - b.left;
+          });
+
+          // Group into single-instance, single-line text blocks
+          const groupedLines = [];
+          let currentGroup = null;
+
+          deduplicated.forEach((item) => {
+            if (!currentGroup) {
+              currentGroup = {
+                id: 'line_' + Math.random().toString(36).substr(2, 9),
+                text: item.str,
+                left: item.left,
+                top: item.top,
+                initialBaselineY: item.baselineY,
+                baselineY: item.baselineY,
+                width: item.width,
+                height: item.height,
+                fontSize: item.fontSize,
+                fontFamily: item.fontFamily,
+                fontWeight: item.fontWeight,
+                fontStyle: item.fontStyle
+              };
+              return;
+            }
+
+            // Strict check against currentGroup's INITIAL baseline to prevent vertical domino chaining
+            const yDiff = Math.abs(item.baselineY - currentGroup.initialBaselineY);
+            const maxAllowedY = Math.min(item.fontSize, currentGroup.fontSize) * 0.25;
+
+            // Horizontal gap check: words must be contiguous on the same line
+            const xGap = item.left - (currentGroup.left + currentGroup.width);
+            const spaceWidth = currentGroup.fontSize * 0.28;
+            const maxAllowedGap = Math.max(currentGroup.fontSize * 1.25, 20);
+
+            if (yDiff <= maxAllowedY && xGap >= -3 && xGap <= maxAllowedGap) {
+              if (!currentGroup.text.endsWith(item.str)) {
+                const needsSpace =
+                  !currentGroup.text.endsWith(' ') &&
+                  !item.str.startsWith(' ') &&
+                  xGap > spaceWidth;
+
+                currentGroup.text += (needsSpace ? ' ' : '') + item.str;
+              }
+
+              const minLeft = Math.min(currentGroup.left, item.left);
+              const maxRight = Math.max(currentGroup.left + currentGroup.width, item.left + item.width);
+              const maxFontSize = Math.max(currentGroup.fontSize, item.fontSize);
+
+              currentGroup.left = Math.round(minLeft * 10) / 10;
+              currentGroup.width = Math.round((maxRight - minLeft) * 10) / 10;
+              currentGroup.fontSize = maxFontSize;
+              currentGroup.height = Math.round((maxFontSize * 1.15) * 10) / 10;
+              currentGroup.top = Math.round((currentGroup.initialBaselineY - (maxFontSize * 0.82)) * 10) / 10;
+            } else {
+              groupedLines.push(currentGroup);
+              currentGroup = {
+                id: 'line_' + Math.random().toString(36).substr(2, 9),
+                text: item.str,
+                left: item.left,
+                top: item.top,
+                initialBaselineY: item.baselineY,
+                baselineY: item.baselineY,
+                width: item.width,
+                height: item.height,
+                fontSize: item.fontSize,
+                fontFamily: item.fontFamily,
+                fontWeight: item.fontWeight,
+                fontStyle: item.fontStyle
+              };
+            }
+          });
+
+          if (currentGroup) {
+            groupedLines.push(currentGroup);
+          }
+
+          // Sample ink color with safe fallback and extract smart background container color
+          groupedLines.forEach((line) => {
+            line.fill = sampleInkColor(bgCtx, line.left, line.top, line.width, line.height);
+            line.docBgColor = sampleSmartBackgroundColor(bgCtx, line.left, line.top, line.width, line.height, line.fill);
+          });
+
+          return groupedLines;
+        }
+
+        /**
+         * AUTO-DETECT TYPOGRAPHY:
+         * Accurately extracts font family, font weight/style (bold, italic, light, black),
+         * and maps PostScript fonts to Google Fonts / standard fonts.
+         */
+        function detectFontFormatting(fontName) {
+          const fn = (fontName || '').toLowerCase();
+
+          // Auto-detect precise font weights
+          let fontWeight = 'normal';
+          if (/black|heavy|900/i.test(fn)) {
+            fontWeight = '900';
+          } else if (/extrabold|800/i.test(fn)) {
+            fontWeight = '800';
+          } else if (/bold|700/i.test(fn)) {
+            fontWeight = 'bold';
+          } else if (/semibold|demibold|600/i.test(fn)) {
+            fontWeight = '600';
+          } else if (/medium|500/i.test(fn)) {
+            fontWeight = '500';
+          } else if (/light|300/i.test(fn)) {
+            fontWeight = '300';
+          }
+
+          // Auto-detect font style
+          const isItalic = /italic|oblique/i.test(fn);
+          const fontStyle = isItalic ? 'italic' : 'normal';
+
+          // Auto-detect typography family
+          let fontFamily = 'Inter, -apple-system, sans-serif';
+
+          // 1. Monospace & Code
+          if (/jetbrains|jbmono/i.test(fn)) {
+            fontFamily = "'JetBrains Mono', monospace";
+          } else if (/courier.*prime/i.test(fn)) {
+            fontFamily = "'Courier Prime', Courier, monospace";
+          } else if (/courier|consolas|menlo|monaco|code|mono/i.test(fn)) {
+            fontFamily = "'Courier Prime', 'Courier New', monospace";
+          }
+          // 2. Serif & Editorial
+          else if (/playfair/i.test(fn)) {
+            fontFamily = "'Playfair Display', Georgia, serif";
+          } else if (/merriweather/i.test(fn)) {
+            fontFamily = "'Merriweather', serif";
+          } else if (/georgia/i.test(fn)) {
+            fontFamily = "Georgia, serif";
+          } else if (/times|roman|garamond|baskerville|cambria|serif/i.test(fn)) {
+            fontFamily = "'Times New Roman', Times, Georgia, serif";
+          }
+          // 3. Display & Condensed
+          else if (/oswald/i.test(fn)) {
+            fontFamily = "'Oswald', sans-serif";
+          }
+          // 4. Modern Sans-Serif
+          else if (/roboto/i.test(fn)) {
+            fontFamily = "'Roboto', sans-serif";
+          } else if (/opensans|open-sans/i.test(fn)) {
+            fontFamily = "'Open Sans', sans-serif";
+          } else if (/montserrat/i.test(fn)) {
+            fontFamily = "'Montserrat', sans-serif";
+          } else if (/lato/i.test(fn)) {
+            fontFamily = "'Lato', sans-serif";
+          } else if (/poppins/i.test(fn)) {
+            fontFamily = "'Poppins', sans-serif";
+          } else if (/arial|helvetica|calibri/i.test(fn)) {
+            fontFamily = "Arial, Helvetica, sans-serif";
+          }
+
+          return {
+            fontWeight: fontWeight,
+            fontStyle: fontStyle,
+            fontFamily: fontFamily
+          };
+        }
+
+        function sampleInkColor(ctx, left, top, width, height) {
+          try {
+            if (!ctx) return '#0f172a';
+            const startX = Math.max(0, Math.floor(left));
+            const startY = Math.max(0, Math.floor(top));
+            const w = Math.min(Math.floor(width), 120);
+            const h = Math.min(Math.floor(height), 40);
+
+            if (w <= 0 || h <= 0) return '#0f172a';
+
+            const imgData = ctx.getImageData(startX, startY, w, h);
+            const data = imgData.data;
+
+            let minBrightness = 255;
+            let darkestR = 15, darkestG = 23, darkestB = 42;
+            let found = false;
+
+            for (let i = 0; i < data.length; i += 4) {
+              const r = data[i];
+              const g = data[i + 1];
+              const b = data[i + 2];
+              const a = data[i + 3];
+
+              if (a < 120) continue;
+
+              const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+              // Must be clearly dark ink (not background)
+              if (brightness < 180) {
+                found = true;
+                if (brightness < minBrightness) {
+                  minBrightness = brightness;
+                  darkestR = r;
+                  darkestG = g;
+                  darkestB = b;
+                }
+              }
+            }
+
+            if (found && minBrightness < 180) {
+              return (
+                '#' +
+                ((1 << 24) + (darkestR << 16) + (darkestG << 8) + darkestB)
+                  .toString(16)
+                  .slice(1)
+              );
+            }
+          } catch (e) {}
+          return '#0f172a';
+        }
+
+        /**
+         * SMART BACKGROUND COLOR SAMPLING
+         * Dynamically samples the perimeter pixels immediately surrounding the text bounds
+         * (above, below, left, right) using ctx.getImageData().
+         * Filters out dark text ink and divider borders, and computes the exact average color
+         * so background patches perfectly match colored boxes, cream panels, or tinted sidebars.
+         */
+        function sampleSmartBackgroundColor(ctx, left, top, width, height, inkColorHex) {
+          try {
+            if (!ctx) return '#FFFFFF';
+
+            const canvasW = ctx.canvas ? ctx.canvas.width : 5000;
+            const canvasH = ctx.canvas ? ctx.canvas.height : 5000;
+
+            const x0 = Math.max(0, Math.floor(left));
+            const y0 = Math.max(0, Math.floor(top));
+            const w = Math.min(Math.floor(width), canvasW - x0);
+            const h = Math.min(Math.floor(height), canvasH - y0);
+
+            if (w <= 0 || h <= 0) return '#FFFFFF';
+
+            // Collect probe coordinates immediately surrounding the text box
+            const samplePoints = [];
+
+            // 1. Top strip (2-3px above text bounds across the line width)
+            const topY = Math.max(0, y0 - 3);
+            const stepX = Math.max(2, Math.floor(w / 12));
+            for (let x = x0; x <= x0 + w; x += stepX) {
+              samplePoints.push({ x: Math.min(x, canvasW - 1), y: topY });
+            }
+
+            // 2. Bottom strip (2-3px below text bounds)
+            const btmY = Math.min(canvasH - 1, y0 + h + 2);
+            for (let x = x0; x <= x0 + w; x += stepX) {
+              samplePoints.push({ x: Math.min(x, canvasW - 1), y: btmY });
+            }
+
+            // 3. Left strip (2-4px to the left of text bounds)
+            const leftX = Math.max(0, x0 - 3);
+            const stepY = Math.max(2, Math.floor(h / 4));
+            for (let y = y0; y <= y0 + h; y += stepY) {
+              samplePoints.push({ x: leftX, y: Math.min(y, canvasH - 1) });
+            }
+
+            // 4. Right strip (2-4px to the right of text bounds)
+            const rightX = Math.min(canvasW - 1, x0 + w + 3);
+            for (let y = y0; y <= y0 + h; y += stepY) {
+              samplePoints.push({ x: rightX, y: Math.min(y, canvasH - 1) });
+            }
+
+            // Parse known ink color to prevent sampling antialiased font edges
+            let inkR = 15, inkG = 23, inkB = 42;
+            if (inkColorHex && inkColorHex.startsWith('#') && inkColorHex.length === 7) {
+              inkR = parseInt(inkColorHex.slice(1, 3), 16);
+              inkG = parseInt(inkColorHex.slice(3, 5), 16);
+              inkB = parseInt(inkColorHex.slice(5, 7), 16);
+            }
+
+            const validColors = [];
+
+            for (const pt of samplePoints) {
+              try {
+                const pixel = ctx.getImageData(pt.x, pt.y, 1, 1).data;
+                const r = pixel[0];
+                const g = pixel[1];
+                const b = pixel[2];
+                const a = pixel[3];
+
+                // Skip fully or mostly transparent pixels
+                if (a < 150) continue;
+
+                // Perceived luminance
+                const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+                const colorDistToInk = Math.abs(r - inkR) + Math.abs(g - inkG) + Math.abs(b - inkB);
+
+                // Exclude dark ink, border strokes, or divider lines (brightness < 60 or very close to ink)
+                if (brightness < 60 || colorDistToInk < 35) {
+                  continue;
+                }
+
+                validColors.push({ r, g, b, brightness });
+              } catch (e) {}
+            }
+
+            // If we have valid sampled pixels
+            if (validColors.length > 0) {
+              // Sort by brightness and trim extreme outliers to eliminate thin stray lines
+              validColors.sort((a, b) => b.brightness - a.brightness);
+
+              const startIdx = Math.floor(validColors.length * 0.1);
+              const endIdx = Math.max(startIdx + 1, Math.ceil(validColors.length * 0.9));
+              const slice = validColors.slice(startIdx, endIdx);
+
+              let sumR = 0, sumG = 0, sumB = 0;
+              for (const c of slice) {
+                sumR += c.r;
+                sumG += c.g;
+                sumB += c.b;
+              }
+
+              const avgR = Math.round(sumR / slice.length);
+              const avgG = Math.round(sumG / slice.length);
+              const avgB = Math.round(sumB / slice.length);
+
+              // If it's pure/near white (all channels >= 252), return clean #FFFFFF
+              if (avgR >= 252 && avgG >= 252 && avgB >= 252) {
+                return '#FFFFFF';
+              }
+
+              // Return the exact hex color matching the colored container / background section
+              const hex = '#' + ((1 << 24) + (avgR << 16) + (avgG << 8) + avgB).toString(16).slice(1).toUpperCase();
+              return hex;
+            }
+          } catch (err) {
+            console.warn('Smart background color sample failed:', err);
+          }
+
+          // Fallback gracefully to pure white page background
+          return '#FFFFFF';
+        }
+
+        function sampleBackgroundColor(ctx, left, top, width, height, inkColorHex) {
+          return sampleSmartBackgroundColor(ctx, left, top, width || 40, height || 16, inkColorHex);
+        }
+
+        /**
+         * Thumbnails Generation (includes "+ Blank Page" card)
+         */
+        async function generateSidebarThumbnails() {
+          elements.tabThumbnailsContent.innerHTML = '';
+
+          for (let p = 1; p <= App.numPages; p++) {
+            const card = document.createElement('div');
+            card.className = `thumbnail-card ${p === App.currentPageNum ? 'active' : ''}`;
+            card.dataset.pageNum = p;
+
+            const canvasWrap = document.createElement('div');
+            canvasWrap.className = 'thumbnail-canvas-wrap';
+
+            const thumbCanvas = document.createElement('canvas');
+            canvasWrap.appendChild(thumbCanvas);
+
+            const footer = document.createElement('div');
+            footer.className = 'thumbnail-footer';
+            footer.innerHTML = `<span>Page ${p}</span><span style="font-family:monospace;">${p}/${App.numPages}</span>`;
+
+            card.appendChild(canvasWrap);
+            card.appendChild(footer);
+
+            card.addEventListener('click', () => {
+              if (p !== App.currentPageNum) {
+                renderPage(p);
+              }
+            });
+
+            elements.tabThumbnailsContent.appendChild(card);
+            renderMiniThumbnail(p, thumbCanvas);
+          }
+
+          // Add "+ Blank Page" quick card at bottom of thumbnails
+          const addPageCard = document.createElement('div');
+          addPageCard.className = 'add-page-card';
+          addPageCard.innerHTML = `<i data-lucide="file-plus" style="width:14px;height:14px;"></i><span>Add Blank Page</span>`;
+          addPageCard.addEventListener('click', addNewBlankPage);
+          elements.tabThumbnailsContent.appendChild(addPageCard);
+
+          if (window.lucide) window.lucide.createIcons();
+        }
+
+        async function renderMiniThumbnail(pageNum, canvas) {
+          try {
+            const pageState = App.pageStates.get(pageNum);
+
+            if (pageState && pageState.isBlankPage) {
+              const vp = { width: 130, height: 170 };
+              canvas.width = vp.width;
+              canvas.height = vp.height;
+              const ctx = canvas.getContext('2d');
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, vp.width, vp.height);
+              ctx.strokeStyle = '#e2e8f0';
+              ctx.strokeRect(0, 0, vp.width, vp.height);
+            } else if (App.pdfDoc) {
+              const page = await App.pdfDoc.getPage(pageNum);
+              const vp = page.getViewport({ scale: 0.22 });
+              canvas.width = vp.width;
+              canvas.height = vp.height;
+              const ctx = canvas.getContext('2d');
+              await page.render({ canvasContext: ctx, viewport: vp }).promise;
+            }
+          } catch (e) {
+            console.warn('Thumbnail render error:', e);
+          }
+        }
+
+        function updateActiveThumbnail(pageNum) {
+          const cards = elements.tabThumbnailsContent.querySelectorAll('.thumbnail-card');
+          cards.forEach((c) => {
+            c.classList.toggle('active', parseInt(c.dataset.pageNum) === pageNum);
+          });
+        }
+
+        /**
+         * Text Structure Tree
+         */
+        function populateTextStructureList(lines) {
+          elements.textTreeList.innerHTML = '';
+
+          lines.forEach((line) => {
+            const item = document.createElement('div');
+            item.className = 'text-tree-item';
+            item.dataset.lineId = line.id;
+
+            const boldBadge = line.fontWeight === 'bold' ? '<span class="meta-tag">Bold</span>' : '';
+            const italicBadge = line.fontStyle === 'italic' ? '<span class="meta-tag">Italic</span>' : '';
+
+            item.innerHTML = `
+              <div class="tree-item-top">
+                <span class="tree-item-text" title="${line.text}">${line.text}</span>
+              </div>
+              <div class="tree-item-meta">
+                <span class="meta-tag" style="display:inline-flex; align-items:center; gap:3px;">
+                  <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${line.fill};"></span>
+                  ${Math.round(line.fontSize)}px
+                </span>
+                ${boldBadge}
+                ${italicBadge}
+                <span class="meta-tag" id="status-tag-${line.id}">Detected</span>
+              </div>
+            `;
+
+            item.addEventListener('click', () => {
+              selectCanvasObjectById(line.id);
+            });
+
+            elements.textTreeList.appendChild(item);
+          });
+        }
+
+        function updateStructureListBadge(lineId, isModified) {
+          const tag = document.getElementById(`status-tag-${lineId}`);
+          if (tag) {
+            tag.textContent = 'Masked & Edited';
+            tag.classList.add('modified');
+          }
+        }
+
+        function selectCanvasObjectById(id) {
+          if (!App.fabricCanvas) return;
+          const target = App.fabricCanvas.getObjects().find((obj) => obj.id === id);
+          if (target) {
+            App.fabricCanvas.setActiveObject(target);
+            wipeBackgroundUnderText(target);
+            App.fabricCanvas.renderAll();
+            highlightSidebarItem(id);
+
+            const cssScale = (App.zoomLevel / App.highDpiScale);
+            const targetY = target.top * cssScale - 60;
+            elements.viewportContainer.scrollTo({
+              top: Math.max(0, targetY),
+              behavior: 'smooth'
+            });
+          }
+        }
+
+        function highlightSidebarItem(id) {
+          elements.textTreeList.querySelectorAll('.text-tree-item').forEach((el) => {
+            el.classList.toggle('selected', el.dataset.lineId === id);
+          });
+        }
+
+        function clearSidebarHighlight() {
+          elements.textTreeList.querySelectorAll('.text-tree-item').forEach((el) => {
+            el.classList.remove('selected');
+          });
+        }
+
+        /**
+         * FEATURE 1: IMAGE INSERTION & CROP TOOL
+         */
+        function openImagePicker() {
+          elements.imageFileInput.click();
+        }
+
+        function handleImagePicked(file) {
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+              openCropModal(img);
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+
+        function openCropModal(img) {
+          App.cropState.rawImage = img;
+          App.cropState.rotation = 0;
+          App.cropState.activeRatio = 'free';
+
+          // Reset chips
+          document.querySelectorAll('.crop-chip').forEach((c) => {
+            c.classList.toggle('active', c.dataset.ratio === 'free');
+          });
+
+          // Show modal
+          elements.cropModal.style.display = 'flex';
+
+          // Setup crop canvas and bounding box
+          setupCropCanvas();
+        }
+
+        function setupCropCanvas() {
+          const img = App.cropState.rawImage;
+          if (!img) return;
+
+          const canvas = elements.cropPreviewCanvas;
+          const ctx = canvas.getContext('2d');
+
+          // Determine preview dimensions (fit into max 580x360 box)
+          const maxW = 580;
+          const maxH = 360;
+          const rot = App.cropState.rotation % 360;
+          const isRotated90 = rot === 90 || rot === 270;
+
+          const srcW = isRotated90 ? img.height : img.width;
+          const srcH = isRotated90 ? img.width : img.height;
+
+          const scale = Math.min(maxW / srcW, maxH / srcH, 1.0);
+          canvas.width = Math.round(srcW * scale);
+          canvas.height = Math.round(srcH * scale);
+
+          // Initial crop box: 80% centered
+          const initW = Math.round(canvas.width * 0.85);
+          const initH = Math.round(canvas.height * 0.85);
+          App.cropState.box = {
+            x: Math.round((canvas.width - initW) / 2),
+            y: Math.round((canvas.height - initH) / 2),
+            w: initW,
+            h: initH
+          };
+
+          drawCropCanvas();
+        }
+
+        function drawCropCanvas() {
+          const canvas = elements.cropPreviewCanvas;
+          const ctx = canvas.getContext('2d');
+          const img = App.cropState.rawImage;
+          if (!img) return;
+
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // 1. Draw base image with rotation
+          ctx.save();
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate((App.cropState.rotation * Math.PI) / 180);
+
+          const rot = App.cropState.rotation % 360;
+          const isRotated90 = rot === 90 || rot === 270;
+          const drawW = isRotated90 ? canvas.height : canvas.width;
+          const drawH = isRotated90 ? canvas.width : canvas.height;
+
+          ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+          ctx.restore();
+
+          // 2. Draw dark overlay outside crop box
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+          const b = App.cropState.box;
+
+          // Top
+          ctx.fillRect(0, 0, canvas.width, b.y);
+          // Bottom
+          ctx.fillRect(0, b.y + b.h, canvas.width, canvas.height - (b.y + b.h));
+          // Left
+          ctx.fillRect(0, b.y, b.x, b.h);
+          // Right
+          ctx.fillRect(b.x + b.w, b.y, canvas.width - (b.x + b.w), b.h);
+
+          // 3. Draw crop box border & grid lines
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(b.x, b.y, b.w, b.h);
+
+          // Grid lines (rule of thirds)
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(b.x + b.w / 3, b.y);
+          ctx.lineTo(b.x + b.w / 3, b.y + b.h);
+          ctx.moveTo(b.x + (b.w * 2) / 3, b.y);
+          ctx.lineTo(b.x + (b.w * 2) / 3, b.y + b.h);
+          ctx.moveTo(b.x, b.y + b.h / 3);
+          ctx.lineTo(b.x + b.w, b.y + b.h / 3);
+          ctx.moveTo(b.x, b.y + (b.h * 2) / 3);
+          ctx.lineTo(b.x + b.w, b.y + (b.h * 2) / 3);
+          ctx.stroke();
+
+          // 4. Draw corner handles
+          const handleSize = 8;
+          ctx.fillStyle = '#38bdf8';
+          // NW, NE, SW, SE
+          ctx.fillRect(b.x - 4, b.y - 4, handleSize, handleSize);
+          ctx.fillRect(b.x + b.w - 4, b.y - 4, handleSize, handleSize);
+          ctx.fillRect(b.x - 4, b.y + b.h - 4, handleSize, handleSize);
+          ctx.fillRect(b.x + b.w - 4, b.y + b.h - 4, handleSize, handleSize);
+        }
+
+        /**
+         * Crop Box Mouse & Touch Interactions
+         */
+        function setupCropInteractions() {
+          const canvas = elements.cropPreviewCanvas;
+
+          const getPointerPos = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+              x: clientX - rect.left,
+              y: clientY - rect.top
+            };
+          };
+
+          const getHandleUnderPoint = (pt) => {
+            const b = App.cropState.box;
+            const tolerance = 12;
+            if (Math.hypot(pt.x - b.x, pt.y - b.y) <= tolerance) return 'nw';
+            if (Math.hypot(pt.x - (b.x + b.w), pt.y - b.y) <= tolerance) return 'ne';
+            if (Math.hypot(pt.x - b.x, pt.y - (b.y + b.h)) <= tolerance) return 'sw';
+            if (Math.hypot(pt.x - (b.x + b.w), pt.y - (b.y + b.h)) <= tolerance) return 'se';
+            if (pt.x >= b.x && pt.x <= b.x + b.w && pt.y >= b.y && pt.y <= b.y + b.h) return 'move';
+            return null;
+          };
+
+          const onStart = (e) => {
+            const pt = getPointerPos(e);
+            const handle = getHandleUnderPoint(pt);
+            if (!handle) return;
+
+            App.cropState.dragHandle = handle;
+            App.cropState.startX = pt.x;
+            App.cropState.startY = pt.y;
+
+            if (handle === 'move') {
+              App.cropState.isDragging = true;
+            } else {
+              App.cropState.isResizing = true;
+            }
+            e.preventDefault();
+          };
+
+          const onMove = (e) => {
+            const pt = getPointerPos(e);
+
+            if (!App.cropState.isDragging && !App.cropState.isResizing) {
+              const handle = getHandleUnderPoint(pt);
+              if (handle === 'nw' || handle === 'se') canvas.style.cursor = 'nwse-resize';
+              else if (handle === 'ne' || handle === 'sw') canvas.style.cursor = 'nesw-resize';
+              else if (handle === 'move') canvas.style.cursor = 'move';
+              else canvas.style.cursor = 'default';
+              return;
+            }
+
+            const dx = pt.x - App.cropState.startX;
+            const dy = pt.y - App.cropState.startY;
+            const b = App.cropState.box;
+
+            if (App.cropState.isDragging) {
+              b.x = Math.max(0, Math.min(canvas.width - b.w, b.x + dx));
+              b.y = Math.max(0, Math.min(canvas.height - b.h, b.y + dy));
+              App.cropState.startX = pt.x;
+              App.cropState.startY = pt.y;
+            } else if (App.cropState.isResizing) {
+              const handle = App.cropState.dragHandle;
+              if (handle === 'se') {
+                b.w = Math.max(30, Math.min(canvas.width - b.x, b.w + dx));
+                b.h = Math.max(30, Math.min(canvas.height - b.y, b.h + dy));
+              } else if (handle === 'sw') {
+                const newW = Math.max(30, b.w - dx);
+                b.x = b.x + (b.w - newW);
+                b.w = newW;
+                b.h = Math.max(30, Math.min(canvas.height - b.y, b.h + dy));
+              } else if (handle === 'ne') {
+                b.w = Math.max(30, Math.min(canvas.width - b.x, b.w + dx));
+                const newH = Math.max(30, b.h - dy);
+                b.y = b.y + (b.h - newH);
+                b.h = newH;
+              } else if (handle === 'nw') {
+                const newW = Math.max(30, b.w - dx);
+                const newH = Math.max(30, b.h - dy);
+                b.x = b.x + (b.w - newW);
+                b.y = b.y + (b.h - newH);
+                b.w = newW;
+                b.h = newH;
+              }
+
+              // Apply fixed aspect ratio if set
+              applyAspectRatioConstraint(b);
+
+              App.cropState.startX = pt.x;
+              App.cropState.startY = pt.y;
+            }
+
+            drawCropCanvas();
+            e.preventDefault();
+          };
+
+          const onEnd = () => {
+            App.cropState.isDragging = false;
+            App.cropState.isResizing = false;
+            App.cropState.dragHandle = null;
+          };
+
+          canvas.addEventListener('mousedown', onStart);
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onEnd);
+
+          canvas.addEventListener('touchstart', onStart, { passive: false });
+          window.addEventListener('touchmove', onMove, { passive: false });
+          window.addEventListener('touchend', onEnd);
+        }
+
+        function applyAspectRatioConstraint(b) {
+          const ratioType = App.cropState.activeRatio;
+          if (ratioType === 'free') return;
+
+          let targetRatio = 1.0;
+          if (ratioType === '1:1') targetRatio = 1.0;
+          else if (ratioType === '4:3') targetRatio = 4 / 3;
+          else if (ratioType === '16:9') targetRatio = 16 / 9;
+          else if (ratioType === '3:1') targetRatio = 3 / 1;
+
+          b.h = Math.round(b.w / targetRatio);
+        }
+
+        /**
+         * Insert Image onto Active Fabric Canvas
+         */
+        function insertImageOntoCanvas(dataUrl) {
+          if (!App.fabricCanvas) return;
+
+          fabric.Image.fromURL(dataUrl, (fabricImg) => {
+            // Default max size: 38% of canvas width
+            const targetMaxW = Math.min(App.fabricCanvas.width * 0.38, 300);
+            if (fabricImg.width > targetMaxW) {
+              fabricImg.scaleToWidth(targetMaxW);
+            }
+
+            // Center image on the active page view
+            const scrollY = elements.viewportContainer.scrollTop;
+            const cssScale = (App.zoomLevel / App.highDpiScale);
+            const viewCenterY = (scrollY + 200) / cssScale;
+
+            fabricImg.set({
+              left: (App.fabricCanvas.width - fabricImg.getScaledWidth()) / 2,
+              top: Math.max(40, Math.min(App.fabricCanvas.height - 150, viewCenterY)),
+              borderColor: '#38bdf8',
+              cornerColor: '#2563eb',
+              cornerSize: 9,
+              transparentCorners: false,
+              hasBorders: true,
+              hasControls: true,
+              isCustomImage: true
+            });
+
+            App.fabricCanvas.add(fabricImg);
+            App.fabricCanvas.setActiveObject(fabricImg);
+            App.fabricCanvas.renderAll();
+
+            recordHistoryState();
+            closeCropModal();
+            showToast('Image inserted onto page!', '✓', 2500);
+          });
+        }
+
+        function applyCropAndInsert() {
+          const img = App.cropState.rawImage;
+          if (!img) return;
+
+          const previewCanvas = elements.cropPreviewCanvas;
+          const b = App.cropState.box;
+
+          // Compute scale between preview canvas and original image
+          const rot = App.cropState.rotation % 360;
+          const isRotated90 = rot === 90 || rot === 270;
+          const fullW = isRotated90 ? img.height : img.width;
+          const fullH = isRotated90 ? img.width : img.height;
+
+          const scaleX = fullW / previewCanvas.width;
+          const scaleY = fullH / previewCanvas.height;
+
+          // Render high-res rotated and cropped image
+          const cropCanvas = document.createElement('canvas');
+          cropCanvas.width = Math.round(b.w * scaleX);
+          cropCanvas.height = Math.round(b.h * scaleY);
+          const ctx = cropCanvas.getContext('2d');
+
+          ctx.save();
+          // Translate to crop origin relative to rotated image
+          ctx.translate(-b.x * scaleX, -b.y * scaleY);
+
+          // Apply rotation
+          if (App.cropState.rotation !== 0) {
+            ctx.translate(fullW / 2, fullH / 2);
+            ctx.rotate((App.cropState.rotation * Math.PI) / 180);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+          } else {
+            ctx.drawImage(img, 0, 0);
+          }
+          ctx.restore();
+
+          insertImageOntoCanvas(cropCanvas.toDataURL('image/png'));
+        }
+
+        function closeCropModal() {
+          elements.cropModal.style.display = 'none';
+          App.cropState.rawImage = null;
+          elements.imageFileInput.value = '';
+        }
+
+        /**
+         * Re-crop active selected image
+         */
+        function cropSelectedImageOnCanvas() {
+          if (!App.fabricCanvas) return;
+          const active = App.fabricCanvas.getActiveObject();
+          if (active && (active.type === 'image' || active.isCustomImage)) {
+            const dataUrl = active.toDataURL({ format: 'png' });
+            const img = new Image();
+            img.onload = () => {
+              openCropModal(img);
+            };
+            img.src = dataUrl;
+          }
+        }
+
+        /**
+         * HIGH-RESOLUTION PDF EXPORT (`pdf-lib`)
+         * Burns all original pages, added blank pages, text modifications, and inserted images.
+         */
+        async function exportCleanPdf() {
+          if (App.numPages === 0) {
+            showToast('Please open or create a document first', '✕', 3000);
+            return;
+          }
+
+          try {
+            showToast('Compiling lossless PDF with pdf-lib...', '<div class="spinner"></div>', 15000);
+
+            // Save current page state
+            if (App.fabricCanvas && App.pageStates.has(App.currentPageNum)) {
+              const curr = App.pageStates.get(App.currentPageNum);
+              curr.canvasJson = App.fabricCanvas.toJSON([
+                'isPdfText', 'originalText', 'originalLeft', 'originalTop',
+                'originalWidth', 'originalHeight', 'hasWipedBackground',
+                'associatedTextId', 'isAutoCoverPatch', 'isManualEraser', 'id',
+                'docBgColor', 'detectedFill', 'isCustomImage',
+                'isCustomShape', 'shapeType', 'stroke', 'strokeWidth', 'fill',
+                'rx', 'ry', 'x1', 'y1', 'x2', 'y2'
+              ]);
+            }
+
+            // Create new PDF Document using PDFLib
+            const newPdfDoc = await PDFLib.PDFDocument.create();
+
+            // Process every page in the document in sequential order
+            for (let p = 1; p <= App.numPages; p++) {
+              let pagePngDataUrl = null;
+              const pageState = App.pageStates.get(p);
+
+              if (p === App.currentPageNum && App.fabricCanvas) {
+                // If on active page, export current canvas
+                pagePngDataUrl = App.fabricCanvas.toDataURL({
+                  format: 'png',
+                  multiplier: 1.0
+                });
+              } else {
+                pagePngDataUrl = await renderPageToDataUrl(p);
+              }
+
+              let unscaledW = 612;
+              let unscaledH = 792;
+
+              if (pageState && pageState.unscaledViewport) {
+                unscaledW = pageState.unscaledViewport.width;
+                unscaledH = pageState.unscaledViewport.height;
+              } else if (App.pdfDoc) {
+                const page = await App.pdfDoc.getPage(p);
+                const unscaledVp = page.getViewport({ scale: 1.0 });
+                unscaledW = unscaledVp.width;
+                unscaledH = unscaledVp.height;
+              }
+
+              // Embed image into pdf-lib
+              const pngImage = await newPdfDoc.embedPng(pagePngDataUrl);
+
+              // Add page with original dimensions in PDF points
+              const pdfPage = newPdfDoc.addPage([unscaledW, unscaledH]);
+
+              // Draw image to fill page
+              pdfPage.drawImage(pngImage, {
+                x: 0,
+                y: 0,
+                width: unscaledW,
+                height: unscaledH
+              });
+            }
+
+            // Save document into bytes
+            const pdfBytes = await newPdfDoc.save();
+
+            // Trigger direct browser download
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            const cleanName = App.fileName
+              ? App.fileName.replace(/\.pdf$/i, '') + '-clean-edited.pdf'
+              : 'SN_Editor_Document.pdf';
+            link.href = URL.createObjectURL(blob);
+            link.download = cleanName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast(`Export complete: "${cleanName}" downloaded!`, '✓', 4000);
+          } catch (err) {
+            console.error('Export error:', err);
+            showToast('Export failed: ' + err.message, '✕', 4000);
+          }
+        }
+
+        async function renderPageToDataUrl(pageNum) {
+          const pageState = App.pageStates.get(pageNum);
+          const exportScale = App.highDpiScale;
+
+          // If blank page
+          if (pageState && pageState.isBlankPage) {
+            const vp = pageState.viewport;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = vp.width;
+            tempCanvas.height = vp.height;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, vp.width, vp.height);
+
+            if (pageState.canvasJson) {
+              const tempFabric = new fabric.StaticCanvas(null, {
+                width: vp.width,
+                height: vp.height
+              });
+
+              await new Promise((resolve) => {
+                fabric.Image.fromURL(tempCanvas.toDataURL(), (img) => {
+                  tempFabric.setBackgroundImage(img, () => {
+                    tempFabric.loadFromJSON(pageState.canvasJson, () => {
+                      tempFabric.renderAll();
+                      resolve();
+                    });
+                  });
+                });
+              });
+
+              return tempFabric.toDataURL({ format: 'png' });
+            }
+
+            return tempCanvas.toDataURL('image/png');
+          }
+
+          // If PDF.js page
+          if (App.pdfDoc) {
+            const page = await App.pdfDoc.getPage(pageNum);
+            const vp = page.getViewport({ scale: exportScale });
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = vp.width;
+            tempCanvas.height = vp.height;
+            const ctx = tempCanvas.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+            if (pageState && pageState.canvasJson) {
+              const tempFabric = new fabric.StaticCanvas(null, {
+                width: vp.width,
+                height: vp.height
+              });
+
+              await new Promise((resolve) => {
+                fabric.Image.fromURL(tempCanvas.toDataURL(), (img) => {
+                  tempFabric.setBackgroundImage(img, () => {
+                    tempFabric.loadFromJSON(pageState.canvasJson, () => {
+                      tempFabric.renderAll();
+                      resolve();
+                    });
+                  });
+                });
+              });
+
+              return tempFabric.toDataURL({ format: 'png' });
+            }
+
+            return tempCanvas.toDataURL('image/png');
+          }
+
+          return null;
+        }
+
+        /**
+         * Reset Page Changes
+         */
+        function resetPageChanges() {
+          if (!confirm('Reset all changes on this page back to original state?')) return;
+          App.pageStates.delete(App.currentPageNum);
+          renderPage(App.currentPageNum);
+          showToast('Page reset to original state', '✓', 2000);
+        }
+
+        /**
+         * 1-CLICK DEMO:
+         * Built-in Professional Business Offer Letter Generator (using pdf-lib)
+         */
+        async function loadSampleLetter() {
+          try {
+            showToast('Generating executive business letter with pdf-lib...', '<div class="spinner"></div>', 5000);
+
+            const doc = await PDFLib.PDFDocument.create();
+            const page = doc.addPage([612, 792]); // Standard US Letter: 8.5 x 11 inches
+            const fontBold = await doc.embedFont(PDFLib.StandardFonts.HelveticaBold);
+            const fontRegular = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+            const fontItalic = await doc.embedFont(PDFLib.StandardFonts.HelveticaOblique);
+
+            const dark = PDFLib.rgb(0.09, 0.12, 0.18);
+            const accent = PDFLib.rgb(0.14, 0.38, 0.92);
+            const gray = PDFLib.rgb(0.4, 0.45, 0.55);
+
+            // 1. Header & Brand
+            page.drawText('NEXUS ENTERPRISES GLOBAL INC.', {
+              x: 54,
+              y: 730,
+              size: 16,
+              font: fontBold,
+              color: accent
+            });
+
+            page.drawText('500 Tech Boulevard, Suite 1200 • San Francisco, CA 94105 • contact@nexusglobal.com', {
+              x: 54,
+              y: 714,
+              size: 8.5,
+              font: fontRegular,
+              color: gray
+            });
+
+            // Dividing line
+            page.drawLine({
+              start: { x: 54, y: 700 },
+              end: { x: 558, y: 700 },
+              thickness: 1.5,
+              color: PDFLib.rgb(0.85, 0.88, 0.92)
+            });
+
+            // Date & Confidential tag
+            page.drawText('Date: October 31, 2026', {
+              x: 54,
+              y: 672,
+              size: 10,
+              font: fontBold,
+              color: dark
+            });
+
+            page.drawText('CONFIDENTIAL & PRIVILEGED', {
+              x: 420,
+              y: 672,
+              size: 9,
+              font: fontBold,
+              color: PDFLib.rgb(0.72, 0.15, 0.15)
+            });
+
+            // Recipient
+            page.drawText('Mr. Alex Mercer', { x: 54, y: 642, size: 12, font: fontBold, color: dark });
+            page.drawText('742 Evergreen Avenue, Apt 4B', { x: 54, y: 628, size: 10, font: fontRegular, color: dark });
+            page.drawText('Seattle, WA 98101', { x: 54, y: 614, size: 10, font: fontRegular, color: dark });
+
+            // Subject
+            page.drawText('Subject: Formal Offer of Employment - Staff AI Systems Architect', {
+              x: 54,
+              y: 584,
+              size: 11,
+              font: fontBold,
+              color: dark
+            });
+
+            // Salutation & Body
+            page.drawText('Dear Mr. Mercer,', { x: 54, y: 556, size: 10, font: fontRegular, color: dark });
+
+            page.drawText(
+              'On behalf of Nexus Enterprises Global Inc., I am thrilled to offer you the full-time position',
+              { x: 54, y: 536, size: 10, font: fontRegular, color: dark }
+            );
+            page.drawText(
+              'of Staff AI Systems Architect starting on December 1, 2026. In this strategic role, you will lead our',
+              { x: 54, y: 522, size: 10, font: fontRegular, color: dark }
+            );
+            page.drawText(
+              'core engineering team in architecting next-generation autonomous document intelligence pipelines.',
+              { x: 54, y: 508, size: 10, font: fontRegular, color: dark }
+            );
+
+            // Shaded / Tinted Callout Container for Key Terms (showcases Smart Background Color Sampling!)
+            page.drawRectangle({
+              x: 54,
+              y: 398,
+              width: 504,
+              height: 94,
+              color: PDFLib.rgb(0.95, 0.965, 0.985), // Soft pale slate-blue container (#F2F6FB)
+              borderColor: PDFLib.rgb(0.84, 0.88, 0.94),
+              borderWidth: 1
+            });
+
+            // Key Terms Table / Bullet Points
+            page.drawText('Key Terms of Employment:', { x: 64, y: 476, size: 10, font: fontBold, color: accent });
+
+            page.drawText('• Base Annual Salary: $195,000 USD paid semi-monthly, subject to statutory deductions.', {
+              x: 64,
+              y: 458,
+              size: 9.5,
+              font: fontRegular,
+              color: dark
+            });
+
+            page.drawText('• Annual Performance Bonus: Targeted at 25% of annual base salary based on company KPI delivery.', {
+              x: 64,
+              y: 442,
+              size: 9.5,
+              font: fontRegular,
+              color: dark
+            });
+
+            page.drawText('• Equity Compensation: Initial grant of 45,000 Restricted Stock Units (RSUs) with 4-year vesting.', {
+              x: 64,
+              y: 426,
+              size: 9.5,
+              font: fontRegular,
+              color: dark
+            });
+
+            page.drawText('• Work Arrangement: Hybrid Flexible Model with quarterly leadership summits in San Francisco.', {
+              x: 64,
+              y: 410,
+              size: 9.5,
+              font: fontRegular,
+              color: dark
+            });
+
+            // Closing Paragraph
+            page.drawText(
+              'Please confirm your acceptance of this offer by signing below and returning this letter by November 7, 2026.',
+              { x: 54, y: 374, size: 10, font: fontRegular, color: dark }
+            );
+            page.drawText(
+              'We look forward to welcoming you to the Nexus team and creating transformative software together.',
+              { x: 54, y: 360, size: 10, font: fontRegular, color: dark }
+            );
+
+            // Sign-off
+            page.drawText('Sincerely,', { x: 54, y: 326, size: 10, font: fontRegular, color: dark });
+            page.drawText('Sarah Jenkins, Vice President of Engineering', {
+              x: 54,
+              y: 290,
+              size: 10,
+              font: fontBold,
+              color: dark
+            });
+            page.drawText('Nexus Enterprises Global Inc.', { x: 54, y: 276, size: 9, font: fontItalic, color: gray });
+
+            // Acceptance Block
+            page.drawText('ACCEPTED AND AGREED:', { x: 54, y: 220, size: 9, font: fontBold, color: gray });
+            page.drawLine({
+              start: { x: 54, y: 170 },
+              end: { x: 260, y: 170 },
+              thickness: 1,
+              color: dark
+            });
+            page.drawText('Candidate Signature: Alex Mercer', { x: 54, y: 154, size: 9, font: fontRegular, color: gray });
+
+            page.drawLine({
+              start: { x: 330, y: 170 },
+              end: { x: 480, y: 170 },
+              thickness: 1,
+              color: dark
+            });
+            page.drawText('Date Signed: November 2, 2026', { x: 330, y: 154, size: 9, font: fontRegular, color: gray });
+
+            const pdfBytes = await doc.save();
+            await loadPdfDocument(pdfBytes.buffer, 'Executive-Offer-Letter-Sample.pdf');
+          } catch (e) {
+            console.error('Failed to create sample letter:', e);
+            showToast('Error generating sample letter: ' + e.message, '✕', 4000);
+          }
+        }
+
+        /**
+         * Zoom & Navigation Helpers
+         */
+        function changeZoom(delta) {
+          const newZoom = Math.min(Math.max(App.zoomLevel + delta, 0.5), 2.5);
+          if (newZoom !== App.zoomLevel) {
+            setZoom(newZoom);
+          }
+        }
+
+        function setZoom(val) {
+          App.zoomLevel = Math.round(val * 100) / 100;
+          elements.zoomLevelDisplay.textContent = `${Math.round(App.zoomLevel * 100)}%`;
+
+          const cssScale = (App.zoomLevel / App.highDpiScale);
+          elements.canvasStage.style.transform = `scale(${cssScale})`;
+        }
+
+        function fitToWidth() {
+          const vpWidth = elements.viewportContainer.clientWidth - 64;
+          if (App.pageStates.has(App.currentPageNum)) {
+            const pageState = App.pageStates.get(App.currentPageNum);
+            const unscaledW = pageState.unscaledViewport.width;
+            const targetZoom = Math.max(0.6, (vpWidth / unscaledW));
+            setZoom(targetZoom);
+          }
+        }
+
+        function fitPage() {
+          const vpHeight = elements.viewportContainer.clientHeight - 64;
+          if (App.pageStates.has(App.currentPageNum)) {
+            const pageState = App.pageStates.get(App.currentPageNum);
+            const unscaledH = pageState.unscaledViewport.height;
+            const targetZoom = Math.max(0.5, (vpHeight / unscaledH));
+            setZoom(targetZoom);
+          }
+        }
+
+        /**
+         * Event Listeners Registration
+         */
+        function setupEventListeners() {
+          // File input & Drag/Drop
+          elements.uploadTriggerBtn.addEventListener('click', () => elements.fileInput.click());
+          elements.browseFileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            elements.fileInput.click();
+          });
+          elements.loadSampleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            loadSampleLetter();
+          });
+          elements.startBlankDocBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            addNewBlankPage();
+          });
+
+          elements.fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                loadPdfDocument(event.target.result, file.name);
+              };
+              reader.readAsArrayBuffer(file);
+            }
+          });
+
+          // FEATURE 1: Add Image Listener
+          elements.addImageBtn.addEventListener('click', openImagePicker);
+          elements.cropSelectedImgBtn.addEventListener('click', cropSelectedImageOnCanvas);
+          elements.imageFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleImagePicked(file);
+          });
+
+          // Crop Modal Actions
+          elements.closeCropModalBtn.addEventListener('click', closeCropModal);
+          elements.cancelCropBtn.addEventListener('click', closeCropModal);
+          elements.insertUncroppedBtn.addEventListener('click', () => {
+            if (App.cropState.rawImage) {
+              insertImageOntoCanvas(App.cropState.rawImage.src);
+            }
+          });
+          elements.applyCropBtn.addEventListener('click', applyCropAndInsert);
+
+          elements.rotateCropImgBtn.addEventListener('click', () => {
+            App.cropState.rotation = (App.cropState.rotation + 90) % 360;
+            setupCropCanvas();
+          });
+
+          // Crop Aspect Ratio Chips
+          document.querySelectorAll('.crop-chip').forEach((chip) => {
+            chip.addEventListener('click', () => {
+              document.querySelectorAll('.crop-chip').forEach((c) => c.classList.remove('active'));
+              chip.classList.add('active');
+              App.cropState.activeRatio = chip.dataset.ratio;
+              applyAspectRatioConstraint(App.cropState.box);
+              drawCropCanvas();
+            });
+          });
+
+          // FEATURE 2: Add Blank Page
+          elements.addPageHeaderBtn.addEventListener('click', addNewBlankPage);
+
+          // Drag and drop PDF
+          const dropzone = elements.dropzoneCard;
+          ['dragenter', 'dragover'].forEach((eventName) => {
+            dropzone.addEventListener(eventName, (e) => {
+              e.preventDefault();
+              dropzone.classList.add('dragover');
+            });
+          });
+
+          ['dragleave', 'drop'].forEach((eventName) => {
+            dropzone.addEventListener(eventName, (e) => {
+              e.preventDefault();
+              dropzone.classList.remove('dragover');
+            });
+          });
+
+          dropzone.addEventListener('drop', (e) => {
+            const files = e.dataTransfer.files;
+            if (files && files[0] && files[0].type === 'application/pdf') {
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                loadPdfDocument(event.target.result, files[0].name);
+              };
+              reader.readAsArrayBuffer(files[0]);
+            } else {
+              showToast('Please drop a valid PDF file', '✕', 3000);
+            }
+          });
+
+          // Page navigation
+          elements.prevPageBtn.addEventListener('click', () => {
+            if (App.currentPageNum > 1) renderPage(App.currentPageNum - 1);
+          });
+          elements.nextPageBtn.addEventListener('click', () => {
+            if (App.currentPageNum < App.numPages) renderPage(App.currentPageNum + 1);
+          });
+
+          // Zoom
+          elements.zoomInBtn.addEventListener('click', () => changeZoom(0.15));
+          elements.zoomOutBtn.addEventListener('click', () => changeZoom(-0.15));
+          elements.resetZoomBtn.addEventListener('click', () => setZoom(1.0));
+          elements.fitWidthBtn.addEventListener('click', fitToWidth);
+          elements.fitPageBtn.addEventListener('click', fitPage);
+
+          // Tools
+          elements.toolSelect.addEventListener('click', () => setTool('select'));
+          elements.toolAddText.addEventListener('click', () => setTool('text'));
+          elements.toolErase.addEventListener('click', () => setTool('erase'));
+          elements.maskAllBtn.addEventListener('click', maskAllTextOnPage);
+
+          // GEOMETRIC SHAPE TOOL & DROPDOWN SELECTION
+          elements.toolShape.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = elements.shapeDropdownMenu.classList.contains('show');
+            if (!isOpen) {
+              elements.shapeDropdownMenu.classList.add('show');
+            } else {
+              elements.shapeDropdownMenu.classList.remove('show');
+              setTool('shape', App.activeShapeType || 'rect');
+            }
+          });
+
+          // Close shape dropdown when clicking outside
+          document.addEventListener('click', (e) => {
+            if (elements.shapeDropdownWrapper && !elements.shapeDropdownWrapper.contains(e.target)) {
+              elements.shapeDropdownMenu.classList.remove('show');
+            }
+          });
+
+          // Shape Type Selection Items
+          document.querySelectorAll('.shape-menu-item').forEach((item) => {
+            item.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const shapeType = item.dataset.shape || 'rect';
+              App.activeShapeType = shapeType;
+
+              document.querySelectorAll('.shape-menu-item').forEach((m) => m.classList.remove('active'));
+              item.classList.add('active');
+
+              // Update shape button label and icon
+              const labelMap = { rect: 'Rectangle', circle: 'Circle', line: 'Line', arrow: 'Arrow' };
+              elements.activeShapeLabel.textContent = labelMap[shapeType] || 'Shape';
+
+              if (elements.activeShapeIcon) {
+                const iconMap = { rect: 'square', circle: 'circle', line: 'minus', arrow: 'arrow-up-right' };
+                elements.activeShapeIcon.setAttribute('data-lucide', iconMap[shapeType] || 'shapes');
+                if (window.lucide) window.lucide.createIcons();
+              }
+
+              elements.shapeDropdownMenu.classList.remove('show');
+              setTool('shape', shapeType);
+
+              const descMap = {
+                rect: 'Rectangle tool active: Click & drag to draw, or click once to stamp.',
+                circle: 'Circle tool active: Click & drag to draw ellipse, or click once to stamp.',
+                line: 'Line tool active: Click & drag to draw line, or click once to stamp.',
+                arrow: 'Arrow tool active: Click & drag to draw arrow, or click once to stamp.'
+              };
+              showToast(descMap[shapeType] || 'Shape tool active', '📐', 2200);
+            });
+          });
+
+          // SHAPE CUSTOMIZATION CONTROLS
+          // 1. Stroke / Outline Color
+          elements.shapeStrokePicker.addEventListener('input', (e) => {
+            const val = e.target.value;
+            App.shapeDefaults.stroke = val;
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.isCustomShape || ['rect', 'circle', 'ellipse', 'line', 'path'].includes(active.type))) {
+              active.set('stroke', val);
+              if (active.shapeType === 'arrow') {
+                active.set('fill', val);
+              }
+              App.fabricCanvas.requestRenderAll();
+            }
+          });
+          elements.shapeStrokePicker.addEventListener('change', recordHistoryState);
+
+          // 2. Stroke / Outline Width
+          elements.shapeStrokeWidthSelect.addEventListener('change', (e) => {
+            const w = parseInt(e.target.value) || 2;
+            App.shapeDefaults.strokeWidth = w;
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.isCustomShape || ['rect', 'circle', 'ellipse', 'line', 'path'].includes(active.type))) {
+              active.set('strokeWidth', w);
+              App.fabricCanvas.requestRenderAll();
+              recordHistoryState();
+            }
+          });
+
+          // 3. Fill Color Picker
+          elements.shapeFillPicker.addEventListener('input', (e) => {
+            const val = e.target.value;
+            App.shapeDefaults.fill = val;
+            App.shapeDefaults.isTransparent = false;
+            elements.shapeTransparentToggleBtn.classList.remove('active');
+            elements.shapeFillModeLabel.textContent = 'Fill: Solid';
+
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.isCustomShape || ['rect', 'circle', 'ellipse', 'path'].includes(active.type))) {
+              if (active.shapeType !== 'line') {
+                active.set('fill', val);
+                App.fabricCanvas.requestRenderAll();
+              }
+            }
+          });
+          elements.shapeFillPicker.addEventListener('change', recordHistoryState);
+
+          // 4. Transparent Fill Toggle
+          elements.shapeTransparentToggleBtn.addEventListener('click', () => {
+            App.shapeDefaults.isTransparent = !App.shapeDefaults.isTransparent;
+            const isTrans = App.shapeDefaults.isTransparent;
+            elements.shapeTransparentToggleBtn.classList.toggle('active', isTrans);
+            elements.shapeFillModeLabel.textContent = isTrans ? 'Fill: None' : 'Fill: Solid';
+
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.isCustomShape || ['rect', 'circle', 'ellipse', 'path'].includes(active.type))) {
+              if (active.shapeType !== 'line' && active.shapeType !== 'arrow') {
+                active.set('fill', isTrans ? 'transparent' : elements.shapeFillPicker.value);
+                App.fabricCanvas.requestRenderAll();
+                recordHistoryState();
+              }
+            }
+          });
+
+          // Formatting: Font Family with Typography Inheritance Synchronization
+          elements.fontFamilySelect.addEventListener('change', (e) => {
+            const val = e.target.value;
+            App.lastDetectedTypography.fontFamily = val;
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.type === 'textbox' || active.type === 'text')) {
+              active.set('fontFamily', val);
+              wipeBackgroundUnderText(active);
+              App.fabricCanvas.requestRenderAll();
+              recordHistoryState();
+            }
+          });
+
+          // Formatting: Font Size with Typography Inheritance Synchronization
+          const updateFontSize = (size) => {
+            const num = Math.max(6, Math.min(96, parseInt(size) || 14));
+            elements.fontSizeInput.value = num;
+            App.lastDetectedTypography.fontSize = num;
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.type === 'textbox' || active.type === 'text')) {
+              active.set('fontSize', num);
+              wipeBackgroundUnderText(active);
+              App.fabricCanvas.requestRenderAll();
+              recordHistoryState();
+            }
+          };
+
+          elements.fontSizeInput.addEventListener('change', (e) => updateFontSize(e.target.value));
+          elements.fontSizeDecBtn.addEventListener('click', () => {
+            updateFontSize((parseInt(elements.fontSizeInput.value) || 14) - 1);
+          });
+          elements.fontSizeIncBtn.addEventListener('click', () => {
+            updateFontSize((parseInt(elements.fontSizeInput.value) || 14) + 1);
+          });
+
+          // Formatting: Bold Toggle
+          elements.boldToggleBtn.addEventListener('click', () => {
+            const isCurrentlyBold = elements.boldToggleBtn.classList.contains('active');
+            const newWeight = isCurrentlyBold ? 'normal' : 'bold';
+            elements.boldToggleBtn.classList.toggle('active', !isCurrentlyBold);
+            App.lastDetectedTypography.fontWeight = newWeight;
+
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.type === 'textbox' || active.type === 'text')) {
+              active.set('fontWeight', newWeight);
+              wipeBackgroundUnderText(active);
+              App.fabricCanvas.requestRenderAll();
+              recordHistoryState();
+            }
+          });
+
+          // Formatting: Italic Toggle
+          elements.italicToggleBtn.addEventListener('click', () => {
+            const isCurrentlyItalic = elements.italicToggleBtn.classList.contains('active');
+            const newStyle = isCurrentlyItalic ? 'normal' : 'italic';
+            elements.italicToggleBtn.classList.toggle('active', !isCurrentlyItalic);
+            App.lastDetectedTypography.fontStyle = newStyle;
+
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.type === 'textbox' || active.type === 'text')) {
+              active.set('fontStyle', newStyle);
+              wipeBackgroundUnderText(active);
+              App.fabricCanvas.requestRenderAll();
+              recordHistoryState();
+            }
+          });
+
+          // Formatting: Color Picker
+          elements.textColorPicker.addEventListener('input', (e) => {
+            const color = e.target.value;
+            App.lastDetectedTypography.fill = color;
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.type === 'textbox' || active.type === 'text')) {
+              active.set('fill', color);
+              wipeBackgroundUnderText(active);
+              App.fabricCanvas.requestRenderAll();
+            }
+          });
+          elements.textColorPicker.addEventListener('change', recordHistoryState);
+
+          // Quick Swatches
+          document.querySelectorAll('.swatch-dot').forEach((dot) => {
+            dot.addEventListener('click', () => {
+              const color = dot.dataset.color;
+              elements.textColorPicker.value = color;
+              App.lastDetectedTypography.fill = color;
+              const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+              if (active && (active.type === 'textbox' || active.type === 'text')) {
+                active.set('fill', color);
+                wipeBackgroundUnderText(active);
+                App.fabricCanvas.requestRenderAll();
+                recordHistoryState();
+              }
+            });
+          });
+
+          // Alignment
+          const setAlignment = (align) => {
+            App.lastDetectedTypography.textAlign = align;
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active && (active.type === 'textbox' || active.type === 'text')) {
+              active.set('textAlign', align);
+              wipeBackgroundUnderText(active);
+              App.fabricCanvas.requestRenderAll();
+              recordHistoryState();
+            }
+          };
+          elements.alignLeftBtn.addEventListener('click', () => setAlignment('left'));
+          elements.alignCenterBtn.addEventListener('click', () => setAlignment('center'));
+          elements.alignRightBtn.addEventListener('click', () => setAlignment('right'));
+
+          // Duplicate Item
+          elements.duplicateItemBtn.addEventListener('click', () => {
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active) {
+              active.clone((cloned) => {
+                cloned.set({
+                  left: active.left + 20,
+                  top: active.top + 20,
+                  evented: true
+                });
+                App.fabricCanvas.add(cloned);
+                App.fabricCanvas.setActiveObject(cloned);
+                App.fabricCanvas.requestRenderAll();
+                recordHistoryState();
+                showToast('Object duplicated', '✓', 1500);
+              });
+            }
+          });
+
+          // Delete Item
+          elements.deleteItemBtn.addEventListener('click', () => {
+            const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+            if (active) {
+              if (active.isPdfText) {
+                wipeBackgroundUnderText(active);
+              }
+              App.fabricCanvas.remove(active);
+              App.fabricCanvas.discardActiveObject();
+              App.fabricCanvas.requestRenderAll();
+              recordHistoryState();
+              showToast('Element deleted', '✓', 1500);
+            }
+          });
+
+          // Reset Page Button
+          elements.resetPageBtn.addEventListener('click', resetPageChanges);
+
+          // Keyboard Shortcuts
+          window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+              const active = App.fabricCanvas ? App.fabricCanvas.getActiveObject() : null;
+              if (active && !active.isEditing) {
+                if (active.isPdfText) {
+                  wipeBackgroundUnderText(active);
+                }
+                App.fabricCanvas.remove(active);
+                App.fabricCanvas.discardActiveObject();
+                App.fabricCanvas.requestRenderAll();
+                recordHistoryState();
+              }
+            }
+
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+              e.preventDefault();
+              if (e.shiftKey) redo();
+              else undo();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+              e.preventDefault();
+              redo();
+            } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+              e.preventDefault();
+              elements.duplicateItemBtn.click();
+            }
+          });
+
+          // Undo / Redo buttons
+          elements.undoBtn.addEventListener('click', undo);
+          elements.redoBtn.addEventListener('click', redo);
+
+          // Export PDF
+          elements.exportPdfBtn.addEventListener('click', exportCleanPdf);
+
+          // Sidebar Toggle & Tabs
+          elements.toggleSidebarBtn.addEventListener('click', () => {
+            elements.sidebar.classList.toggle('collapsed');
+          });
+
+          document.querySelectorAll('.sidebar-tab').forEach((tab) => {
+            tab.addEventListener('click', () => {
+              document.querySelectorAll('.sidebar-tab').forEach((t) => t.classList.remove('active'));
+              tab.classList.add('active');
+
+              const target = tab.dataset.tab;
+              elements.tabThumbnailsContent.style.display = target === 'thumbnails' ? 'flex' : 'none';
+              elements.tabStructureContent.style.display = target === 'structure' ? 'block' : 'none';
+              elements.tabInfoContent.style.display = target === 'info' ? 'block' : 'none';
+              const tabFb = document.getElementById('tab-firebase-content');
+              if (tabFb) tabFb.style.display = target === 'firebase' ? 'block' : 'none';
+            });
+          });
+
+          // Firebase Cloud & Traffic Toolbar Button Handlers
+          const btnCloudSave = document.getElementById('btn-toolbar-cloud-save');
+          if (btnCloudSave) {
+            btnCloudSave.addEventListener('click', () => {
+              window.dispatchEvent(new CustomEvent('pdfboss:cloud_save'));
+            });
+          }
+
+          const btnCloudDocs = document.getElementById('btn-toolbar-cloud-docs');
+          if (btnCloudDocs) {
+            btnCloudDocs.addEventListener('click', () => {
+              window.dispatchEvent(new CustomEvent('pdfboss:cloud_docs'));
+            });
+          }
+
+          // Structure Search / Filter
+          elements.structureSearchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase().trim();
+            const items = elements.textTreeList.querySelectorAll('.text-tree-item');
+            items.forEach((item) => {
+              const text = (item.querySelector('.tree-item-text').textContent || '').toLowerCase();
+              item.style.display = text.includes(query) ? 'block' : 'none';
+            });
+          });
+
+          // PREVENT ACCIDENTAL VIEWPORT ZOOM & LAYOUT RESIZING ON DOUBLE-CLICK:
+          // Canvas Stage double-click guard: Prevents browser double-click zoom
+          if (elements.canvasStage) {
+            elements.canvasStage.addEventListener('dblclick', (e) => {
+              // Stop propagation to browser window zoom handlers while allowing Fabric canvas to handle it
+              if (e.stopPropagation) e.stopPropagation();
+            }, { passive: true });
+          }
+
+          // STABLE CANVAS CONTAINER DIMENSIONS:
+          // Rigid scroll guards on window, body, and app-container to prevent any child focus() or
+          // scrollIntoView from scrolling the page layout, displacing headers, or jumping footers
+          window.addEventListener('scroll', () => {
+            if (window.scrollX !== 0 || window.scrollY !== 0) {
+              window.scrollTo(0, 0);
+            }
+          }, { passive: false });
+
+          document.body.addEventListener('scroll', () => {
+            if (document.body.scrollLeft !== 0 || document.body.scrollTop !== 0) {
+              document.body.scrollLeft = 0;
+              document.body.scrollTop = 0;
+            }
+          });
+
+          const appContainer = document.getElementById('app-container');
+          if (appContainer) {
+            appContainer.addEventListener('scroll', () => {
+              if (appContainer.scrollLeft !== 0 || appContainer.scrollTop !== 0) {
+                appContainer.scrollLeft = 0;
+                appContainer.scrollTop = 0;
+              }
+            });
+          }
+
+          // PREVENT CANVAS RENDERING CONTEXT LOSS / BLACK-OUT:
+          // Listen for WebGL/2D context loss and auto-restore
+          const mainCanvasEl = elements.fabricCanvasEl;
+          if (mainCanvasEl) {
+            mainCanvasEl.addEventListener('webglcontextlost', (e) => {
+              e.preventDefault();
+              console.warn('WebGL context lost event caught - preventing blackout');
+            }, false);
+
+            mainCanvasEl.addEventListener('contextlost', (e) => {
+              e.preventDefault();
+              console.warn('Canvas 2D context lost event caught - preventing blackout');
+            }, false);
+
+            mainCanvasEl.addEventListener('contextrestored', () => {
+              console.info('Canvas context restored');
+              if (App.fabricCanvas) {
+                App.fabricCanvas.requestRenderAll();
+              }
+            }, false);
+          }
+        }
+
+        // Expose PDFBoss App and API bridge to React / Firebase module
+        window.PDFBossApp = App;
+        window.PDFBossAPI = {
+          loadPdfDocument: loadPdfDocument,
+          loadSampleLetter: loadSampleLetter,
+          addNewBlankPage: addNewBlankPage,
+          exportCleanPdf: exportCleanPdf,
+          exportCompiledPdfBytes: async function () {
+            if (App.numPages === 0) return null;
+            if (App.fabricCanvas && App.pageStates.has(App.currentPageNum)) {
+              const curr = App.pageStates.get(App.currentPageNum);
+              curr.canvasJson = App.fabricCanvas.toJSON([
+                'isPdfText', 'originalText', 'originalLeft', 'originalTop',
+                'originalWidth', 'originalHeight', 'hasWipedBackground',
+                'associatedTextId', 'isAutoCoverPatch', 'isManualEraser', 'id',
+                'docBgColor', 'detectedFill', 'isCustomImage',
+                'isCustomShape', 'shapeType', 'stroke', 'strokeWidth', 'fill',
+                'rx', 'ry', 'x1', 'y1', 'x2', 'y2'
+              ]);
+            }
+            const newPdfDoc = await PDFLib.PDFDocument.create();
+            for (let p = 1; p <= App.numPages; p++) {
+              let pagePngDataUrl = null;
+              const pageState = App.pageStates.get(p);
+              if (p === App.currentPageNum && App.fabricCanvas) {
+                pagePngDataUrl = App.fabricCanvas.toDataURL({ format: 'png', multiplier: 1.0 });
+              } else {
+                pagePngDataUrl = await renderPageToDataUrl(p);
+              }
+              let unscaledW = 612;
+              let unscaledH = 792;
+              if (pageState && pageState.unscaledViewport) {
+                unscaledW = pageState.unscaledViewport.width;
+                unscaledH = pageState.unscaledViewport.height;
+              } else if (App.pdfDoc) {
+                const page = await App.pdfDoc.getPage(p);
+                const unscaledVp = page.getViewport({ scale: 1.0 });
+                unscaledW = unscaledVp.width;
+                unscaledH = unscaledVp.height;
+              }
+              const pngImage = await newPdfDoc.embedPng(pagePngDataUrl);
+              const pdfPage = newPdfDoc.addPage([unscaledW, unscaledH]);
+              pdfPage.drawImage(pngImage, { x: 0, y: 0, width: unscaledW, height: unscaledH });
+            }
+            const bytes = await newPdfDoc.save();
+            return bytes;
+          },
+          getThumbnailDataUrl: function () {
+            if (App.fabricCanvas) {
+              return App.fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.6, multiplier: 0.25 });
+            }
+            return '';
+          },
+          loadPdfFromBase64: async function (base64OrDataUrl, name) {
+            const rawBase64 = base64OrDataUrl.includes(',') ? base64OrDataUrl.split(',')[1] : base64OrDataUrl;
+            const binary = atob(rawBase64);
+            const len = binary.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            await loadPdfDocument(bytes.buffer, name || 'Cloud-Document.pdf');
+          },
+          getCurrentDocInfo: function () {
+            return {
+              name: App.fileName || 'document.pdf',
+              numPages: App.numPages || 1,
+              currentPageNum: App.currentPageNum || 1,
+              modifiedCount: App.modifiedCount || 0
+            };
+          }
+        };
+
+        // Notify when PDF is exported
+        const originalExport = exportCleanPdf;
+        exportCleanPdf = async function () {
+          window.dispatchEvent(new CustomEvent('pdfboss:export_start', { detail: { fileName: App.fileName } }));
+          await originalExport();
+          window.dispatchEvent(new CustomEvent('pdfboss:export_complete', { detail: { fileName: App.fileName } }));
+        };
+
+        // Initialize on DOM Ready
+        window.addEventListener('DOMContentLoaded', () => {
+          setupEventListeners();
+          setupCropInteractions();
+          if (window.lucide) window.lucide.createIcons();
+          // Load the rich sample letter by default for immediate 1-click test
+          loadSampleLetter();
+        });
+      })();
+    </script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

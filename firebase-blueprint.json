@@ -1,0 +1,207 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile document containing authentication metadata and account details",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Unique Firebase Authentication user UID"
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 254,
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "User display name"
+        },
+        "photoURL": {
+          "type": "string",
+          "maxLength": 512,
+          "description": "Profile picture avatar URL"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "admin"],
+          "description": "User role permissions level"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the user account was registered"
+        },
+        "lastLoginAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the user last logged in"
+        }
+      },
+      "required": ["uid", "email", "createdAt", "lastLoginAt"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "Saved PDF documents, state, and editing metadata created by the authenticated user",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Unique document identifier"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase UID of document owner"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "description": "File or document display name"
+        },
+        "pageCount": {
+          "type": "number",
+          "description": "Total number of pages in the document"
+        },
+        "fileSize": {
+          "type": "number",
+          "description": "Approximate file size in bytes"
+        },
+        "thumbnail": {
+          "type": "string",
+          "maxLength": 200000,
+          "description": "Base64 data URL thumbnail image preview"
+        },
+        "pdfDataUrl": {
+          "type": "string",
+          "maxLength": 1000000,
+          "description": "Base64 encoded PDF or snapshot representation for cloud persistence"
+        },
+        "editsSummary": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Brief summary of applied modifications"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the document was initially created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the document was last updated"
+        }
+      },
+      "required": ["id", "ownerId", "name", "pageCount", "createdAt", "updatedAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Traffic and user session analytics logs for tracking active usage and monetization metrics",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Unique activity log entry identifier"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Firebase UID of the user or 'anonymous' if guest"
+        },
+        "eventType": {
+          "type": "string",
+          "enum": ["page_view", "pdf_open", "pdf_edit", "pdf_export", "image_crop", "session_start", "login", "signup"],
+          "description": "The category of analytics or traffic event"
+        },
+        "details": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Additional event context or feature details"
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 255,
+          "description": "Route or interface section where event occurred"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the activity occurred"
+        }
+      },
+      "required": ["id", "userId", "eventType", "timestamp"]
+    },
+    "TrafficDailyStat": {
+      "title": "TrafficDailyStat",
+      "description": "Aggregated daily traffic metrics counter for monetization and AdSense preparation",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "Daily date key e.g. YYYY-MM-DD"
+        },
+        "date": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32,
+          "description": "ISO date string for the traffic day"
+        },
+        "pageViews": {
+          "type": "number",
+          "description": "Aggregated page view impressions for the day"
+        },
+        "activeSessions": {
+          "type": "number",
+          "description": "Total active sessions recorded for the day"
+        },
+        "uniqueUsers": {
+          "type": "number",
+          "description": "Unique active users counter"
+        },
+        "totalExports": {
+          "type": "number",
+          "description": "Total PDF export operations"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of last counter update"
+        }
+      },
+      "required": ["id", "date", "pageViews", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Stores user profile and account details keyed by user auth UID"
+    },
+    "/documents/{documentId}": {
+      "schema": "Document",
+      "description": "Stores user PDF projects and documents keyed by documentId with strict owner validation"
+    },
+    "/activity_logs/{logId}": {
+      "schema": "ActivityLog",
+      "description": "Stores traffic, user activity and interaction telemetry for analytics and monetization tracking"
+    },
+    "/traffic_stats/{statId}": {
+      "schema": "TrafficDailyStat",
+      "description": "Stores daily aggregated traffic metrics"
+    }
+  }
+}

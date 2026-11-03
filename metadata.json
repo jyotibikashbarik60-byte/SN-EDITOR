@@ -1,0 +1,8 @@
+{
+  "name": "Remix PDF Boss / SN Editor",
+  "description": "Professional in-browser PDF text structure analyzer, direct on-screen text editor, formatting detector, whiteout eraser, and lossless PDF exporter.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

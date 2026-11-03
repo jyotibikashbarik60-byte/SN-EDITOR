@@ -1,0 +1,158 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Global Security Primitives
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null && request.auth.uid != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Entity Validation Helpers
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt', 'lastLoginAt']) &&
+             data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt', 'lastLoginAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() <= 128 &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 128)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 512)) &&
+             (!('role' in data) || (data.role in ['user', 'admin'])) &&
+             data.createdAt is string && data.createdAt.size() <= 64 &&
+             data.lastLoginAt is string && data.lastLoginAt.size() <= 64;
+    }
+
+    function isValidDocument(data) {
+      return data.keys().hasAll(['id', 'ownerId', 'name', 'pageCount', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['id', 'ownerId', 'name', 'pageCount', 'fileSize', 'thumbnail', 'pdfDataUrl', 'editsSummary', 'createdAt', 'updatedAt']) &&
+             data.id is string && isValidId(data.id) &&
+             data.ownerId is string && data.ownerId == request.auth.uid &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 255 &&
+             data.pageCount is number && data.pageCount >= 0 &&
+             (!('fileSize' in data) || (data.fileSize is number && data.fileSize >= 0)) &&
+             (!('thumbnail' in data) || (data.thumbnail is string && data.thumbnail.size() <= 200000)) &&
+             (!('pdfDataUrl' in data) || (data.pdfDataUrl is string && data.pdfDataUrl.size() <= 1000000)) &&
+             (!('editsSummary' in data) || (data.editsSummary is string && data.editsSummary.size() <= 500)) &&
+             data.createdAt is string && data.createdAt.size() <= 64 &&
+             data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    function isValidActivityLog(data) {
+      return data.keys().hasAll(['id', 'userId', 'eventType', 'timestamp']) &&
+             data.keys().hasOnly(['id', 'userId', 'eventType', 'details', 'path', 'timestamp']) &&
+             data.id is string && isValidId(data.id) &&
+             data.userId is string && data.userId.size() <= 128 &&
+             (data.userId == 'anonymous' || (isSignedIn() && data.userId == request.auth.uid)) &&
+             data.eventType in ['page_view', 'pdf_open', 'pdf_edit', 'pdf_export', 'image_crop', 'session_start', 'login', 'signup'] &&
+             (!('details' in data) || (data.details is string && data.details.size() <= 500)) &&
+             (!('path' in data) || (data.path is string && data.path.size() <= 255)) &&
+             data.timestamp is string && data.timestamp.size() <= 64;
+    }
+
+    function isValidTrafficStat(data) {
+      return data.keys().hasAll(['id', 'date', 'pageViews', 'updatedAt']) &&
+             data.keys().hasOnly(['id', 'date', 'pageViews', 'activeSessions', 'uniqueUsers', 'totalExports', 'updatedAt']) &&
+             data.id is string && data.id.size() <= 32 &&
+             data.date is string && data.date.size() <= 32 &&
+             data.pageViews is number && data.pageViews >= 0 &&
+             (!('activeSessions' in data) || (data.activeSessions is number && data.activeSessions >= 0)) &&
+             (!('uniqueUsers' in data) || (data.uniqueUsers is number && data.uniqueUsers >= 0)) &&
+             (!('totalExports' in data) || (data.totalExports is number && data.totalExports >= 0)) &&
+             data.updatedAt is string && data.updatedAt.size() <= 64;
+    }
+
+    // 1. User Profile Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // PII Protection: Blanket enumeration strictly forbidden
+
+      allow create: if isOwner(userId) &&
+                       isValidUser(incoming()) &&
+                       (!('role' in incoming()) || incoming().role == 'user'); // Prevent self-elevation to admin
+
+      allow update: if isOwner(userId) &&
+                       isValidUser(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       (!('role' in incoming()) || incoming().role == existing().role) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'photoURL', 'lastLoginAt']);
+
+      allow delete: if false; // User deletion handled via auth accounts
+    }
+
+    // 2. Documents Collection (PDF projects and edits)
+    match /documents/{documentId} {
+      allow get: if isSignedIn() && isValidId(documentId) && resource.data.ownerId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       isValidId(documentId) &&
+                       isValidDocument(incoming()) &&
+                       incoming().id == documentId &&
+                       incoming().ownerId == request.auth.uid;
+
+      allow update: if isSignedIn() &&
+                       isValidId(documentId) &&
+                       isValidDocument(incoming()) &&
+                       existing().ownerId == request.auth.uid &&
+                       incoming().ownerId == existing().ownerId &&
+                       incoming().id == existing().id &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['name', 'pageCount', 'fileSize', 'thumbnail', 'pdfDataUrl', 'editsSummary', 'updatedAt']);
+
+      allow delete: if isSignedIn() &&
+                       isValidId(documentId) &&
+                       resource.data.ownerId == request.auth.uid;
+    }
+
+    // 3. Activity Logs (Analytics & Traffic Tracking)
+    match /activity_logs/{logId} {
+      allow get: if isSignedIn() && isValidId(logId) && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+
+      // Append-only audit logs
+      allow create: if isValidId(logId) &&
+                       isValidActivityLog(incoming()) &&
+                       incoming().id == logId;
+
+      allow update: if false; // Immutable logs
+      allow delete: if false; // Tamper-proof
+    }
+
+    // 4. Traffic Stats (Daily aggregates for monetization & traffic monitoring)
+    match /traffic_stats/{statId} {
+      allow get: if true; // Publicly readable daily metrics
+      allow list: if true;
+
+      allow create: if isValidTrafficStat(incoming()) && incoming().id == statId;
+
+      allow update: if isValidTrafficStat(incoming()) &&
+                       incoming().id == existing().id &&
+                       incoming().date == existing().date &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['pageViews', 'activeSessions', 'uniqueUsers', 'totalExports', 'updatedAt']);
+
+      allow delete: if false;
+    }
+  }
+}
